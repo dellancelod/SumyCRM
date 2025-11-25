@@ -7,7 +7,6 @@ using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Audio;
 using System.IO;
-using static SumyCRM.Services.AudioProcessing;
 
 namespace SumyCRM.Controllers
 {
@@ -68,7 +67,7 @@ namespace SumyCRM.Controllers
             return RedirectToAction("Index");
         }
         [HttpPost]
-        public async Task<IActionResult> Upload(IFormFile audio, string caller, string text)
+        public async Task<IActionResult> Upload(IFormFile audio, string caller, string menu_item)
         {
 
             if (audio == null || audio.Length == 0) 
@@ -85,8 +84,6 @@ namespace SumyCRM.Controllers
                 await audio.CopyToAsync(stream); 
             }
 
-            string whisperInput = PreprocessAudio(folder, fileName, fullPath);
-
             // ===== Whisper STT =====
                                                                                                                                                                                                                                                                                                                                                                                            
             AudioClient audioClient = new("whisper-1", _apiKey); 
@@ -99,14 +96,14 @@ namespace SumyCRM.Controllers
                 ResponseFormat = AudioTranscriptionFormat.Text 
             };
             AudioTranscription transcription =
-                     await audioClient.TranscribeAudioAsync(whisperInput, options);
+                     await audioClient.TranscribeAudioAsync(fullPath, options);
             string transcript = transcription.Text ?? "(empty)"; 
             
             // ===== Save in DB =====
             var record = new Request 
             { 
                 Caller = caller, 
-                Text = text,
+                Text = menu_item,
                 Address = transcript, 
                 AudioFilePath = "/audio/" + fileName, 
                 CreatedAt = DateTime.UtcNow 

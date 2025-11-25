@@ -54,6 +54,7 @@ packages/
 publish/
 wwwroot/dist/
 wwwroot/uploads/
+wwwroot/audio/
 
 # ASP.NET files
 appsettings.Development.json
