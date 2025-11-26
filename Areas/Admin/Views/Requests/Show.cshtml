@@ -20,7 +20,7 @@
                     <p><strong>Номер телефону:</strong> @Model.Caller</p>
                     <p><strong>Пункт проблеми:</strong> @Model.Text</p>
                     <p><strong>Адреса:</strong> @Model.Address</p>
-                    <p><strong>Нікнейм:</strong> <audio controls src="@item.AudioFilePath"></audio></p>
+                    <p><strong>Нікнейм:</strong> <audio controls src="@Model.AudioFilePath"></audio></p>
                     <p><strong>Статус:</strong> @(Model.IsCompleted ? "Завершено" : "Не завершено")</p>
                 </div>
                 
