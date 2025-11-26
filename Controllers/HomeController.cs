@@ -7,120 +7,57 @@ using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Audio;
 using System.IO;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using TraineeApplication.Model;
 
 namespace SumyCRM.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly AppDbContext _db;
-
-        private readonly string _apiKey;
-
-        public HomeController(AppDbContext db, IConfiguration config)
+        private readonly UserManager<IdentityUser> userManager;
+        private readonly SignInManager<IdentityUser> signInManager;
+        public HomeController(UserManager<IdentityUser> userMgr, SignInManager<IdentityUser> signInMgr)
         {
-            _db = db;
-            _apiKey = config["OpenAI:ApiKey"];
+            userManager = userMgr;
+            signInManager = signInMgr;
         }
-
-        // Show all requests
-        public IActionResult Index()
+        [AllowAnonymous]
+        public IActionResult Index(string? returnUrl)
         {
-            var list = _db.Requests.OrderByDescending(r => r.CreatedAt).ToList();
-            return View(list);
-        }
-
-        // Upload page
-        public IActionResult Upload()
-        {
-            return View();
+            ViewBag.Title = "Логін";
+            ViewBag.returnUrl = returnUrl;
+            return View(new LoginViewModel());
         }
         [HttpPost]
-        public async Task<IActionResult> Delete(int id)
+        [AllowAnonymous]
+        public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl)
         {
-            var record = await _db.Requests.FindAsync(id);
-            if (record == null)
-                return NotFound();
-
-            // Try to delete audio file
-            if (!string.IsNullOrWhiteSpace(record.AudioFilePath))
+            if (ModelState.IsValid)
             {
-                // AudioFilePath like "/audio/xxx.wav"
-                var relativePath = record.AudioFilePath.TrimStart('/', '\\');
-                var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", relativePath);
-
-                if (System.IO.File.Exists(fullPath))
+                IdentityUser user = await userManager.FindByNameAsync(model.Username);
+                if (user != null)
                 {
-                    try
+                    await signInManager.SignOutAsync();
+                    Microsoft.AspNetCore.Identity.SignInResult result = await signInManager.PasswordSignInAsync(user, model.Password, model.RememberMe, false);
+                    if (result.Succeeded)
                     {
-                        System.IO.File.Delete(fullPath);
-                    }
-                    catch
-                    {
-                        // ignore file delete errors, DB delete will still happen
+                        return Redirect(returnUrl ?? "/");
                     }
                 }
+                ModelState.AddModelError(nameof(LoginViewModel.Username), "Невірний логін або пароль");
             }
-
-            _db.Requests.Remove(record);
-            await _db.SaveChangesAsync();
-
-            return RedirectToAction("Index");
+            return View(model);
         }
-        [HttpPost]
-        public async Task<IActionResult> Upload(IFormFile audio, 
-            string caller, string menu_item,
-            [FromHeader(Name = "X-API-KEY")] string apiKey,
-            [FromServices] IConfiguration config)
+
+
+        [Authorize]
+        public async Task<IActionResult> Logout()
         {
-            string secret = config["UploadSecret"];
-            if (apiKey != secret)
-                return Unauthorized("Invalid API Key");
-
-            if (audio == null || audio.Length == 0) 
-                return BadRequest("No audio file"); 
-
-            string folder = Path.Combine("wwwroot", "audio"); 
-
-            Directory.CreateDirectory(folder); 
-
-            string fileName = $"{Guid.NewGuid()}_{audio.FileName}"; 
-            string fullPath = Path.Combine(folder, fileName); 
-            using (var stream = new FileStream(fullPath, FileMode.Create)) 
-            { 
-                await audio.CopyToAsync(stream); 
-            }
-
-            // ===== Whisper STT =====
-                                                                                                                                                                                                                                                                                                                                                                                           
-            AudioClient audioClient = new("whisper-1", _apiKey); 
-            AudioTranscriptionOptions options = new()
-            { 
-                // Force Ukrainian
-                Language = "uk",
-
-                // можно не задавать, по умолчанию вернётся просто текст
-                ResponseFormat = AudioTranscriptionFormat.Text 
-            };
-            AudioTranscription transcription =
-                     await audioClient.TranscribeAudioAsync(fullPath, options);
-            string transcript = transcription.Text ?? "(empty)"; 
-            
-            // ===== Save in DB =====
-            var record = new Request 
-            { 
-                Caller = caller, 
-                Text = menu_item,
-                Address = transcript, 
-                AudioFilePath = "/audio/" + fileName, 
-                CreatedAt = DateTime.UtcNow 
-            }; 
-            _db.Requests.Add(record); 
-            await _db.SaveChangesAsync(); 
-            
-            return RedirectToAction("Index"); 
+            await signInManager.SignOutAsync();
+            return RedirectToAction("Index", "Home");
         }
-        
-       
+
     }
 
 }

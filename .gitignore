@@ -61,6 +61,8 @@ appsettings.Development.json
 appsettings.Local.json
 appsettings.*.local.json
 appsettings.json
+Data/AppDbContext.cs
+
 
 # EF Core / SQL
 *.db

@@ -1,40 +1,30 @@
-﻿@model IEnumerable<SumyCRM.Models.Request>
-
-<h2>Voice Requests</h2>
-
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Номер</th>
-            <th>Текст</th>
-            <th>Адреса</th>
-            <th>Аудіо</th>
-            <th>Дата</th>
-            <th>Видалити</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var i in Model)
-        {
-            <tr>
-                <td>@i.Id</td>
-                <td>@i.Caller</td>
-                <td>@i.Text</td>
-                <td>@i.Address</td>
-                <td>
-                    <audio controls src="@i.AudioFilePath"></audio>
-                </td>
-                <td>@i.CreatedAt.ToLocalTime()</td>
-                <td>
-                    <form asp-action="Delete" method="post" style="display:inline;">
-                        <input type="hidden" name="id" value="@i.Id" />
-                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                    </form>
-                </td>
-                
-            </tr>
-
-        }
-    </tbody>
-</table>
+﻿@using TraineeApplication.Model
+@model LoginViewModel
+<div>
+    <h1>Вхід у адмін-панель</h1>
+    <div class="row">
+        <div class="col-md-12">
+            <form asp-area="" asp-controller="Home" asp-action="Login" method="post" asp-route-returnUrl="@ViewBag.returnUrl">
+                <div asp-validation-summary="All"></div>
+                <div class="form-group">
+                    <label asp-for="Username"></label>
+                    <input asp-for="Username" />
+                    <span asp-validation-for="Username" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="Password"></label>
+                    <input asp-for="Password" />
+                    <span asp-validation-for="Password" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox">
+                        <input asp-for="RememberMe" />
+                        <label asp-for="RememberMe"></label>
+                        <span asp-validation-for="RememberMe" class="text-danger"></span>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" >Увійти</button>
+            </form>
+        </div>
+    </div>
+</div>
