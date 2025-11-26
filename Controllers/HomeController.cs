@@ -33,6 +33,12 @@ namespace SumyCRM.Controllers
             ViewBag.Title = "ÀÓ„≥Ì";
             return View(new LoginViewModel());
         }
+
+        // Upload page
+        public IActionResult Upload()
+        {
+            return View();
+        }
         [HttpPost]
         [AllowAnonymous]
         public async Task<IActionResult> Login(LoginViewModel model)
