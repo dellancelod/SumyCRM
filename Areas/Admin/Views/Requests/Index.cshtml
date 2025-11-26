@@ -60,7 +60,7 @@
                             </td>
                             <td>
                                 <label>
-                                    <span>@item.CreatedAt.ToLocalTime()</span>
+                                    <span>@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</span>
                                 </label>
                             </td>
                             
@@ -142,7 +142,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                Ви впевнені, що хочете видалити це замовлення?
+                Ви впевнені, що хочете видалити цю заявку?
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
