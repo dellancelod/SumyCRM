@@ -4,11 +4,15 @@ namespace SumyCRM.Models
 {
     public class Request
     {
-        public int Id { get; set; }
+        public Request() => CreatedAt = DateTime.UtcNow;
+        [Required]
+        public Guid Id { get; set; }
+        public int RequestNumber { get; set; }
         public string Caller { get; set; }
         public string Text { get; set; }
         public string Address { get; set; }
         public string AudioFilePath { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsCompleted { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }

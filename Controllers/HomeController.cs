@@ -19,13 +19,14 @@ namespace SumyCRM.Controllers
         private readonly SignInManager<IdentityUser> signInManager;
 
         private readonly string _apiKey;
-        private readonly AppDbContext _db;
-        public HomeController(UserManager<IdentityUser> userMgr, SignInManager<IdentityUser> signInMgr, AppDbContext db, IConfiguration config)
+        private readonly DataManager _dataManager;
+        public HomeController(UserManager<IdentityUser> userMgr, SignInManager<IdentityUser> signInMgr,
+            DataManager dataManager, AppDbContext db, IConfiguration config)
         {
             userManager = userMgr;
             signInManager = signInMgr;
             _apiKey = config["OpenAI:ApiKey"];
-            _db = db;
+            _dataManager = dataManager;
         }
         [AllowAnonymous]
         public IActionResult Index()
@@ -106,16 +107,17 @@ namespace SumyCRM.Controllers
             // ===== Save in DB =====
             var record = new Request
             {
+                RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
                 Caller = caller,
                 Text = menu_item,
                 Address = transcript,
-                AudioFilePath = "/audio/" + fileName,
-                CreatedAt = DateTime.UtcNow
+                IsCompleted = false,
+                AudioFilePath = "/audio/" + fileName
             };
-            _db.Requests.Add(record);
-            await _db.SaveChangesAsync();
 
-            return RedirectToAction("Index");
+            await _dataManager.Requests.SaveRequestAsync(record);
+
+            return Ok("Uploaded");
         }
     }
 

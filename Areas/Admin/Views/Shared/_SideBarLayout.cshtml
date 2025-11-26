@@ -2,7 +2,7 @@
     <div class="sidebar-header bg-white">
         <a asp-area="Admin" asp-controller="Home" asp-action="Index">
             <h3>SumyCRM</h3>
-            <strong>SCRM</strong>
+            <strong>CRM</strong>
         </a>
     </div>
 
@@ -10,7 +10,7 @@
         <li>
             <a href="#productsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                 <i class="fa-solid fa-store"></i>
-                Товари
+                Категорії
             </a>
             <ul class="collapse list-unstyled" id="productsSubmenu">
                 <li>
@@ -27,15 +27,15 @@
         <li>
             <a href="#ordersSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                 <span class="order-count">0</span>
-                Замовлення
+                Звернення
                 
             </a>
             <ul class="collapse list-unstyled" id="ordersSubmenu">
                 <li>
-                    <a href="@Url.Action("Index", "Orders", new {area="Admin", page = 1, completed = false })">Очікують відправлення</a>
+                    <a href="@Url.Action("Index", "Requests", new {area="Admin", page = 1, completed = false })">Активні</a>
                 </li>
                 <li>
-                    <a href="@Url.Action("Index", "Orders", new {area="Admin", page = 1, completed = true })">Відправлені</a>
+                    <a href="@Url.Action("Index", "Requests", new {area="Admin", page = 1, completed = true })">Виконані</a>
                 </li>
             </ul>
         </li>

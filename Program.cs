@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SumyCRM.Data;
+using SumyCRM.Data.Repository.EntityFramework;
+using SumyCRM.Data.Repository.Interfaces;
 using SumyCRM.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +10,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddTransient<IRequestsRepository, EFRequestsRepository>();
+builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseMySql(
         builder.Configuration.GetConnectionString("MariaDbConnectionString"),
