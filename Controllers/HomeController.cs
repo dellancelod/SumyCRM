@@ -67,8 +67,14 @@ namespace SumyCRM.Controllers
             return RedirectToAction("Index");
         }
         [HttpPost]
-        public async Task<IActionResult> Upload(IFormFile audio, string caller, string menu_item)
+        public async Task<IActionResult> Upload(IFormFile audio, 
+            string caller, string menu_item,
+            [FromHeader(Name = "X-API-KEY")] string apiKey,
+            [FromServices] IConfiguration config)
         {
+            string secret = config["UploadSecret"];
+            if (apiKey != secret)
+                return Unauthorized("Invalid API Key");
 
             if (audio == null || audio.Length == 0) 
                 return BadRequest("No audio file"); 

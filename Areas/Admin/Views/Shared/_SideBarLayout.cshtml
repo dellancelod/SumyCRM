@@ -1,0 +1,66 @@
+﻿<nav id="sidebar" class="navbar-light bg-white topbar mb-4 static-top shadow border-end border-dark border-2">
+    <div class="sidebar-header bg-white">
+        <a asp-area="Admin" asp-controller="Home" asp-action="Index">
+            <h3>GiftsBakery</h3>
+            <strong>GB</strong>
+        </a>
+    </div>
+
+    <ul class="list-unstyled components">
+        <li>
+            <a href="#productsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                <i class="fa-solid fa-store"></i>
+                Товари
+            </a>
+            <ul class="collapse list-unstyled" id="productsSubmenu">
+                <li>
+                    <a asp-area="Admin" asp-controller="ShopItems" asp-action="Index">Всі товари</a>
+                </li>
+                <li>
+                    <a asp-area="Admin" asp-controller="Categories" asp-action="Index">Всі категорії</a>
+                </li>
+                <li>
+                    <a asp-area="Admin" asp-controller="Sizes" asp-action="Index">Всі розміри</a>
+                </li>
+            </ul>
+        </li>
+        <li>
+            <a href="#ordersSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                <span class="order-count">0</span>
+                Замовлення
+                
+            </a>
+            <ul class="collapse list-unstyled" id="ordersSubmenu">
+                <li>
+                    <a href="@Url.Action("Index", "Orders", new {area="Admin", page = 1, completed = false })">Очікують відправлення</a>
+                </li>
+                <li>
+                    <a href="@Url.Action("Index", "Orders", new {area="Admin", page = 1, completed = true })">Відправлені</a>
+                </li>
+            </ul>
+        </li>
+        <li>
+            <a href="#pagesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                <i class="fa-solid fa-gear"></i>
+                Налаштування
+            </a>
+            <ul class="collapse list-unstyled" id="pagesSubmenu">
+                <li>
+                    <a asp-area="Admin" asp-controller="Pages" asp-action="Index">Сторінки</a>
+                </li>
+                <li>
+                    <a asp-area="Admin" asp-controller="Home" asp-action="EditPoster">Постер</a>
+                </li>
+                <li>
+                    <a asp-area="Admin" asp-controller="SocialLinks" asp-action="Index">Посилання на соцмережі</a>
+                </li>
+            </ul>
+        </li>
+        <li>
+            <a asp-area="" asp-controller="Home" asp-action="Index">
+                <i class="fas fa-home"></i>
+                На сайт
+            </a>
+        </li>
+    </ul>
+</nav>

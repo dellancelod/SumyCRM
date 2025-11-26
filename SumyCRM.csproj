@@ -22,4 +22,8 @@
     <PackageReference Include="Vosk" Version="0.3.38" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Services\" />
+  </ItemGroup>
+
 </Project>

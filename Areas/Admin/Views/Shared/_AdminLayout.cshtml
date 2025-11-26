@@ -1,0 +1,25 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Адмін-панель - GiftsBakery</title>
+
+    @await Html.PartialAsync("MetatagsPartial")
+    @await Html.PartialAsync("CssPartial")
+</head>
+<body>
+    <div class="wrapper">
+        @await Html.PartialAsync("_SideBarLayout")
+        <div id="content">
+            @await Html.PartialAsync("_TopBarLayout")
+            <div class="p-3 admin-body">
+                @RenderBody()
+            </div>
+        </div>
+
+        @await Html.PartialAsync("ScriptsPartial")
+        @await RenderSectionAsync("Scripts", required: false)
+    </div>
+</body>
+</html>
