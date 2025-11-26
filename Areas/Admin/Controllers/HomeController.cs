@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using OpenAI.Audio;
 using SumyCRM.Data;
 using SumyCRM.Models;
@@ -62,7 +63,8 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return RedirectToAction("Index");
         }
-        [HttpPost("admin/upload")]
+        [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Upload(IFormFile audio,
             string caller, string menu_item,
             [FromHeader(Name = "X-API-KEY")] string apiKey,
