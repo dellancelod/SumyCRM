@@ -81,7 +81,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 nameof(RequestsController).Replace("Controller", string.Empty),
                 new { page = 1, completed = true });
         }
-        public IActionResult LoadOrders()
+        public IActionResult LoadRequests()
         {
             var ordersCount = dataManager.Requests.GetRequests().Count(o => o.IsCompleted == false);
 

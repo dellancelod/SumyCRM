@@ -17,7 +17,7 @@
         });
     }
     function loadOrders() {
-        fetch('/Admin/Orders/LoadOrders')
+        fetch('/Admin/Requests/LoadRequests')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

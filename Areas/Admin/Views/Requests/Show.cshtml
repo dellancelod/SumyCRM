@@ -1,0 +1,33 @@
+﻿@using SumyCRM.Areas.Admin.Models
+@model Request
+
+@{
+    string strTitle = "Перегляд заявки";
+    ViewBag.Title = strTitle;
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">@strTitle</h2>
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Деталі заявки</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Номер заявки:</strong> @Model.RequestNumber</p>
+                    <p><strong>Дата додавання:</strong> @Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</p>
+                    <p><strong>Номер телефону:</strong> @Model.Caller</p>
+                    <p><strong>Пункт проблеми:</strong> @Model.Text</p>
+                    <p><strong>Адреса:</strong> @Model.Address</p>
+                    <p><strong>Нікнейм:</strong> <audio controls src="@item.AudioFilePath"></audio></p>
+                    <p><strong>Статус:</strong> @(Model.IsCompleted ? "Завершено" : "Не завершено")</p>
+                </div>
+                
+            </div>
+
+        </div>
+    </div>
+
+
+</div>
