@@ -23,11 +23,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             return View(list);
         }
 
-        // Upload page
-        public IActionResult Upload()
-        {
-            return View();
-        }
         [HttpPost]
         public async Task<IActionResult> Delete(int id)
         {

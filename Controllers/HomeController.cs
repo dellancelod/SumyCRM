@@ -34,11 +34,6 @@ namespace SumyCRM.Controllers
             return View(new LoginViewModel());
         }
 
-        // Upload page
-        public IActionResult Upload()
-        {
-            return View();
-        }
         [HttpPost]
         [AllowAnonymous]
         public async Task<IActionResult> Login(LoginViewModel model)
@@ -67,8 +62,9 @@ namespace SumyCRM.Controllers
             await signInManager.SignOutAsync();
             return RedirectToAction("Index", "Home");
         }
-        [HttpPost]
+        [HttpPost("/home/upload")]
         [AllowAnonymous]
+        [IgnoreAntiforgeryToken] // for curl
         public async Task<IActionResult> Upload(IFormFile audio,
            string caller, string menu_item,
            [FromHeader(Name = "X-API-KEY")] string apiKey,
