@@ -62,7 +62,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return RedirectToAction("Index");
         }
-        [HttpPost]
+        [HttpPost("admin/upload")]
         public async Task<IActionResult> Upload(IFormFile audio,
             string caller, string menu_item,
             [FromHeader(Name = "X-API-KEY")] string apiKey,
