@@ -23,7 +23,8 @@ namespace SumyCRM.Areas.Admin.Controllers
         {
             var requests = _dataManager.Requests
                .GetRequests()
-               .OrderByDescending(r => r.DateAdded)   // если есть DateAdded / CreatedAt
+               .OrderByDescending(r => r.DateAdded)
+               .Include(r => r.Category)// если есть DateAdded / CreatedAt
                .ToList();
 
             var activeCount = requests.Count(r => !r.IsCompleted);
