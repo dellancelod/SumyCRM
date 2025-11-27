@@ -35,7 +35,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 ActiveCount = activeCount,
                 CompletedCount = completedCount,
                 CategoryStats = requests
-                    .GroupBy(r => r.Category.Title) // или r.Category.Name, или r.Text — как у тебя
+                    .GroupBy(r => r.Category?.Title ?? "Без категорії") // или r.Category.Name, или r.Text — как у тебя
                     .Select(g => new CategoryStat
                     {
                         Name = g.Key ?? "Без категорії",
