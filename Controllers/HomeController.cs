@@ -54,7 +54,7 @@ namespace SumyCRM.Controllers
                 }
                 ModelState.AddModelError(nameof(LoginViewModel.Username), "Невірний логін або пароль");
             }
-            return View(model);
+            return View("Index", model);
         }
 
 
