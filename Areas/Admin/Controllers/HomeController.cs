@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OpenAI.Audio;
+using SumyCRM.Areas.Admin.Models;
 using SumyCRM.Data;
 using SumyCRM.Models;
 
@@ -9,52 +11,32 @@ namespace SumyCRM.Areas.Admin.Controllers
     [Area("Admin")]
     public class HomeController : Controller
     {
-        private readonly AppDbContext _db;
+        private readonly DataManager _dataManager;
 
-        public HomeController(AppDbContext db, IConfiguration config)
+        public HomeController(DataManager dataManager)
         {
-            _db = db;
+            _dataManager = dataManager;
         }
 
         // Show all requests
         public IActionResult Index()
         {
-            var list = _db.Requests.OrderByDescending(r => r.DateAdded).ToList();
-            return View(list);
-        }
+            var requests = _dataManager.Requests
+               .GetRequests()
+               .OrderByDescending(r => r.DateAdded)   // если есть DateAdded / CreatedAt
+               .ToList();
 
-        [HttpPost]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var record = await _db.Requests.FindAsync(id);
-            if (record == null)
-                return NotFound();
+            var activeCount = requests.Count(r => !r.IsCompleted);
+            var completedCount = requests.Count(r => r.IsCompleted);
 
-            // Try to delete audio file
-            if (!string.IsNullOrWhiteSpace(record.AudioFilePath))
+            var vm = new DashboardViewModel
             {
-                // AudioFilePath like "/audio/xxx.wav"
-                var relativePath = record.AudioFilePath.TrimStart('/', '\\');
-                var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", relativePath);
+                Requests = requests,
+                ActiveCount = activeCount,
+                CompletedCount = completedCount
+            };
 
-                if (System.IO.File.Exists(fullPath))
-                {
-                    try
-                    {
-                        System.IO.File.Delete(fullPath);
-                    }
-                    catch
-                    {
-                        // ignore file delete errors, DB delete will still happen
-                    }
-                }
-            }
-
-            _db.Requests.Remove(record);
-            await _db.SaveChangesAsync();
-
-            return RedirectToAction("Index");
+            return View(vm);
         }
-       
     }
 }

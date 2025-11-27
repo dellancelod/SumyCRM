@@ -1,40 +1,56 @@
-﻿@model IEnumerable<SumyCRM.Models.Request>
+﻿@using SumyCRM.Areas.Admin.Models
+@model DashboardViewModel
 
-<h2>Voice Requests</h2>
+<h2>Головна сторінка</h2>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Номер</th>
-            <th>Текст</th>
-            <th>Адреса</th>
-            <th>Аудіо</th>
-            <th>Дата</th>
-            <th>Видалити</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach (var i in Model)
-        {
-            <tr>
-                <td>@i.Id</td>
-                <td>@i.Caller</td>
-                <td>@i.Text</td>
-                <td>@i.Address</td>
-                <td>
-                    <audio controls src="@i.AudioFilePath"></audio>
-                </td>
-                <td>@i.DateAdded.ToLocalTime()</td>
-                <td>
-                    <form asp-action="Delete" method="post" style="display:inline;">
-                        <input type="hidden" name="id" value="@i.Id" />
-                        <button type="submit" class="btn btn-sm btn-danger">Delete</button>
-                    </form>
-                </td>
-                
-            </tr>
+<div class="row mb-4">
+    <div class="col-md-4">
+        <h4>Звернення</h4>
+        <canvas id="requestsDonut"></canvas>
 
-        }
-    </tbody>
-</table>
+        <div class="mt-2">
+            <span class="badge bg-primary">Активні: @Model.ActiveCount</span>
+            <span class="badge bg-success">Виконані: @Model.CompletedCount</span>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const ctx = document.getElementById('requestsDonut').getContext('2d');
+
+            const activeCount = @Model.ActiveCount;
+            const completedCount = @Model.CompletedCount;
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Активні', 'Виконані'],
+                    datasets: [{
+                        data: [activeCount, completedCount],
+                        backgroundColor: [
+                            'rgba(54, 162, 235, 0.7)',   // Активні
+                            'rgba(75, 192, 192, 0.7)'    // Виконані
+                        ],
+                        borderColor: [
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(75, 192, 192, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    cutout: '60%' // делает именно "donut", а не обычный pie
+                }
+            });
+        });
+    </script>
+}
