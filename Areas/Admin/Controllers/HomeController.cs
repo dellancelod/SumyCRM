@@ -33,7 +33,15 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 Requests = requests,
                 ActiveCount = activeCount,
-                CompletedCount = completedCount
+                CompletedCount = completedCount,
+                CategoryStats = requests
+                    .GroupBy(r => r.Category.Title) // или r.Category.Name, или r.Text — как у тебя
+                    .Select(g => new CategoryStat
+                    {
+                        Name = g.Key ?? "Без категорії",
+                        Count = g.Count()
+                    })
+                    .ToList()
             };
 
             return View(vm);

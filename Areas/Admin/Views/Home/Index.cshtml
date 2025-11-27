@@ -7,11 +7,11 @@
     <div class="col-md-4">
         <h4>Звернення</h4>
         <canvas id="requestsDonut"></canvas>
+    </div>
 
-        <div class="mt-2">
-            <span class="badge bg-primary">Активні: @Model.ActiveCount</span>
-            <span class="badge bg-success">Виконані: @Model.CompletedCount</span>
-        </div>
+    <div class="col-md-4">
+        <h4>Категорії</h4>
+        <canvas id="categoriesDonut"></canvas>
     </div>
 </div>
 
@@ -20,12 +20,13 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            const ctx = document.getElementById('requestsDonut').getContext('2d');
+            // ----- Donut 1: Active vs Completed -----
+            const ctx1 = document.getElementById('requestsDonut').getContext('2d');
 
             const activeCount = @Model.ActiveCount;
             const completedCount = @Model.CompletedCount;
 
-            new Chart(ctx, {
+            new Chart(ctx1, {
                 type: 'doughnut',
                 data: {
                     labels: ['Активні', 'Виконані'],
@@ -48,7 +49,57 @@
                             position: 'bottom'
                         }
                     },
-                    cutout: '60%' // делает именно "donut", а не обычный pie
+                    cutout: '60%'
+                }
+            });
+
+            // ----- Donut 2: Categories -----
+            const ctx2 = document.getElementById('categoriesDonut').getContext('2d');
+
+            const categoryLabels = @Html.Raw(
+            System.Text.Json.JsonSerializer.Serialize(
+                Model.CategoryStats.Select(c => c.Name)
+            )
+        );
+
+            const categoryData = @Html.Raw(
+            System.Text.Json.JsonSerializer.Serialize(
+                Model.CategoryStats.Select(c => c.Count)
+            )
+        );
+
+            new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: categoryLabels,
+                    datasets: [{
+                        data: categoryData,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(255, 206, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(255, 159, 64, 0.7)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    cutout: '60%'
                 }
             });
         });
