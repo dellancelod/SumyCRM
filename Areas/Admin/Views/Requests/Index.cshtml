@@ -23,6 +23,7 @@
                     <tr>
                         <th scope="col">№</th>
                         <th scope="col">Номер звернення</th>
+                        <th scope="col">Категорія</th>
                         <th scope="col">Текст</th>
                         <th scope="col">Адреса</th>
                         <th scope="col">Аудіо</th>
@@ -39,6 +40,11 @@
                             <td>
                                 <label>
                                     <span>@item.RequestNumber</span>
+                                </label>
+                            </td>
+                            <td>
+                                <label>
+                                    <span>@item.Category?.Title</span>
                                 </label>
                             </td>
                             <td>
@@ -60,7 +66,7 @@
                             </td>
                             <td>
                                 <label>
-                                    <span>@item.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</span>
+                                    <span>@item.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</span>
                                 </label>
                             </td>
                             

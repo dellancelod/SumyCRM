@@ -19,6 +19,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             int pageSize = 7; // Items per page
 
             var requests = await dataManager.Requests.GetRequests()
+                .Include(r => r.Category)
                 .Where(x => x.IsCompleted == completed)
                 .OrderBy(x => x.RequestNumber)
                 .ToListAsync();

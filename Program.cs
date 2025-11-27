@@ -11,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 
 builder.Services.AddTransient<IRequestsRepository, EFRequestsRepository>();
+builder.Services.AddTransient<ICategoriesRepository, EFCategoriesRepository>();
 builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseMySql(

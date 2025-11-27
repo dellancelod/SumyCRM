@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using SumyCRM.Data;
 using SumyCRM.Models;
+using static SumyCRM.Services.CategoryConverter;
 using Microsoft.AspNetCore.Mvc;
 using OpenAI;
 using OpenAI.Chat;
@@ -104,10 +105,20 @@ namespace SumyCRM.Controllers
                      await audioClient.TranscribeAudioAsync(fullPath, options);
             string transcript = transcription.Text ?? "(empty)";
 
+            
             // ===== Save in DB =====
+            if (!MenuToCategory.TryGetValue(menu_item, out var categoryId))
+                return BadRequest("Unknown menu item");
+
+            var category = await _dataManager.Categories.GetCategoryByIdAsync(categoryId);
+            if (category == null)
+                return BadRequest("Category not found");
+
             var record = new Request
             {
                 RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
+                CategoryId = category.Id,
+                Category = category,
                 Caller = caller,
                 Text = menu_item,
                 Address = transcript,

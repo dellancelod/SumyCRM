@@ -25,7 +25,7 @@
                 <td>
                     <audio controls src="@i.AudioFilePath"></audio>
                 </td>
-                <td>@i.CreatedAt.ToLocalTime()</td>
+                <td>@i.DateAdded.ToLocalTime()</td>
                 <td>
                     <form asp-action="Delete" method="post" style="display:inline;">
                         <input type="hidden" name="id" value="@i.Id" />

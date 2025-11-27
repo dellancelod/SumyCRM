@@ -19,7 +19,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         // Show all requests
         public IActionResult Index()
         {
-            var list = _db.Requests.OrderByDescending(r => r.CreatedAt).ToList();
+            var list = _db.Requests.OrderByDescending(r => r.DateAdded).ToList();
             return View(list);
         }
 

@@ -16,11 +16,11 @@
                 </div>
                 <div class="card-body">
                     <p><strong>Номер заявки:</strong> @Model.RequestNumber</p>
-                    <p><strong>Дата додавання:</strong> @Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</p>
+                    <p><strong>Дата додавання:</strong> @Model.DateAdded.ToString("dd.MM.yyyy HH:mm")</p>
                     <p><strong>Номер телефону:</strong> @Model.Caller</p>
                     <p><strong>Пункт проблеми:</strong> @Model.Text</p>
                     <p><strong>Адреса:</strong> @Model.Address</p>
-                    <p><strong>Нікнейм:</strong> <audio controls src="@Model.AudioFilePath"></audio></p>
+                    <p><strong>Аудіо:</strong> <audio controls src="@Model.AudioFilePath"></audio></p>
                     <p><strong>Статус:</strong> @(Model.IsCompleted ? "Завершено" : "Не завершено")</p>
                 </div>
                 
