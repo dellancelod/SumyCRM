@@ -110,6 +110,8 @@ namespace SumyCRM.Controllers
             if (!MenuToCategory.TryGetValue(menu_item, out var categoryId))
                 return BadRequest("Unknown menu item");
 
+            MenuToText.TryGetValue(menu_item, out var menu_text);
+
             var category = await _dataManager.Categories.GetCategoryByIdAsync(categoryId);
             if (category == null)
                 return BadRequest("Category not found");
@@ -120,7 +122,7 @@ namespace SumyCRM.Controllers
                 CategoryId = category.Id,
                 Category = category,
                 Caller = caller,
-                Text = menu_item,
+                Text = menu_text,
                 Address = transcript,
                 IsCompleted = false,
                 AudioFilePath = "/audio/" + fileName
