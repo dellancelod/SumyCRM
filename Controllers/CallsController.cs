@@ -24,13 +24,14 @@ namespace SumyCRM.Controllers
 
         [HttpPost("upload")]
         [AllowAnonymous]
-        [IgnoreAntiforgeryToken] // for curl
-        public async Task<IActionResult> Upload(IFormFile audio,
-          string caller, string menu_item,
-          [FromHeader(Name = "X-API-KEY")] string apiKey,
-          [FromServices] IConfiguration config)
+        [IgnoreAntiforgeryToken] // для curl / Asterisk
+        public async Task<IActionResult> Upload(
+            [FromForm] IFormFile? audio,
+            [FromForm(Name = "caller")] string? caller,
+            [FromForm(Name = "menu_item")] string? menu_item,
+            [FromHeader(Name = "X-API-KEY")] string? apiKey)
         {
-            string secret = config["UploadSecret"];
+            string secret = _config["UploadSecret"];
             if (apiKey != secret)
                 return Unauthorized("Invalid API Key");
 
