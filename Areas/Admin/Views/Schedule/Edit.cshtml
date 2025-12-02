@@ -1,0 +1,38 @@
+﻿@model Schedule
+@{
+    string strTitle = "Редагувати графік";
+    ViewBag.Title = strTitle;
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">@strTitle</h2>
+
+    <form asp-area="Admin" asp-controller="Schedule" asp-action="Edit" method="post" enctype="multipart/form-data" class="needs-validation">
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="DateAdded" />
+
+        <div class="mb-3">
+            <label asp-for="Number" class="form-label"></label>
+            <input asp-for="Number" class="form-control" />
+            <span asp-validation-for="Number" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Time" class="form-label"></label>
+            <input asp-for="Time" class="form-control" />
+            <span asp-validation-for="Time" class="text-danger"></span>
+        </div>
+
+        <div class="form-check mb-3">
+            <input asp-for="Hidden" class="form-check-input" type="checkbox" id="hiddenCheck" />
+            <label asp-for="Hidden" class="form-check-label" for="hiddenCheck"></label>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <input type="submit" value="Зберегти" class="btn btn-primary" />
+            <a asp-area="Admin" asp-controller="Schedule" asp-action="Index" class="btn btn-outline-secondary">
+                Відмінити редагування
+            </a>
+        </div>
+    </form>
+</div>

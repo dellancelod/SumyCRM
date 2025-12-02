@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using TraineeApplication.Model;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
@@ -8,8 +7,7 @@ namespace SumyCRM.Areas.Admin.Controllers
     {
         public IActionResult Index()
         {
-            return View(new LoginViewModel());
+            return View();
         }
-
     }
 }
