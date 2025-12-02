@@ -14,6 +14,8 @@ using TraineeApplication.Model;
 
 namespace SumyCRM.Controllers
 {
+    [ApiController]
+    [Route("api/[controller]")]
     public class HomeController : Controller
     {
         private readonly UserManager<IdentityUser> userManager;
@@ -64,7 +66,7 @@ namespace SumyCRM.Controllers
             await signInManager.SignOutAsync();
             return RedirectToAction("Index", "Home");
         }
-        [HttpPost("/home/upload")]
+        [HttpPost("/api/upload")]
         [AllowAnonymous]
         [IgnoreAntiforgeryToken] // for curl
         public async Task<IActionResult> Upload(IFormFile audio,
