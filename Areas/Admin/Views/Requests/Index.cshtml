@@ -23,10 +23,10 @@
                     <tr>
                         <th scope="col">№</th>
                         <th scope="col">Номер звернення</th>
+                        <th scope="col">Ім'я</th>
                         <th scope="col">Номер телефону</th>
                         <th scope="col">Категорія</th>
                         <th scope="col">Підкатегорія</th>
-                        <th scope="col">Ім'я</th>
                         <th scope="col">Текст</th>
                         <th scope="col">Аудіо</th>
                         <th scope="col">Дата</th>
@@ -46,6 +46,11 @@
                             </td>
                             <td>
                                 <label>
+                                    <span>@item.Name</span>
+                                </label>
+                            </td>
+                            <td>
+                                <label>
                                     <span>@item.Caller</span>
                                 </label>
                             </td>
@@ -57,12 +62,6 @@
                             <td>
                                 <label>
                                     <span>@item.Subcategory</span>
-                                </label>
-                            </td>
-
-                            <td>
-                                <label>
-                                    <span>@item.Name</span>
                                 </label>
                             </td>
                             <td>
