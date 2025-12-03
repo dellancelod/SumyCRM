@@ -81,8 +81,8 @@ namespace SumyCRM.Controllers
                 CategoryId = category.Id,
                 Category = category,
                 Caller = caller,
-                Text = menu_text,
-                Address = transcript,
+                Subcategory = menu_text,
+                Text = transcript,
                 IsCompleted = false,
                 AudioFilePath = "/audio/" + fileName
             };
