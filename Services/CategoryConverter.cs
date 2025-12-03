@@ -10,6 +10,9 @@
 
             // =================== ВОДА ===================
             ["2.1"] = Guid.Parse("5ef8838e-3264-4277-9604-92b004d97224"),
+            ["2.2"] = Guid.Parse("5ef8838e-3264-4277-9604-92b004d97224"),
+            ["2.3"] = Guid.Parse("5ef8838e-3264-4277-9604-92b004d97224"),
+            ["2.4"] = Guid.Parse("5ef8838e-3264-4277-9604-92b004d97224"),
 
         };
         public static readonly Dictionary<string, string> MenuToText = new()
