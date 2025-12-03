@@ -26,6 +26,7 @@
                         <th scope="col">Номер телефону</th>
                         <th scope="col">Категорія</th>
                         <th scope="col">Підкатегорія</th>
+                        <th scope="col">Ім'я</th>
                         <th scope="col">Текст</th>
                         <th scope="col">Аудіо</th>
                         <th scope="col">Дата</th>
@@ -58,6 +59,12 @@
                                     <span>@item.Subcategory</span>
                                 </label>
                             </td>
+
+                            <td>
+                                <label>
+                                    <span>@item.Name</span>
+                                </label>
+                            </td>
                             <td>
                                 <label>
                                     <span>@item.Text</span>
@@ -67,6 +74,11 @@
                                 <label>
                                     <span>
                                         <audio controls src="@item.AudioFilePath"></audio>
+                                    </span>
+                                </label>
+                                <label>
+                                    <span>
+                                        <audio controls src="@item.NameAudioFilePath"></audio>
                                     </span>
                                 </label>
                             </td>
