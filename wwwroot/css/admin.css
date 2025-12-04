@@ -765,6 +765,23 @@ h6, .h6 {
     height: 100%;
     border: none;
 }
+
+/* Prevent table from being wider than the screen */
+.table-responsive {
+    overflow-x: hidden !important;
+}
+
+/* Force wrapping of long text inside table cells */
+.table td, .table th {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    max-width: 200px; /* adjust if needed */
+}
+
+/* Shrink audio player so it fits nicely */
+.table audio {
+    width: 150px; /* or 120px, choose what looks better */
+}
 /*
 The MIT License (MIT)
 
