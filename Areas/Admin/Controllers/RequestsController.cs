@@ -90,13 +90,15 @@ namespace SumyCRM.Areas.Admin.Controllers
         [HttpPost]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var order = await dataManager.Requests.GetRequestByIdAsync(id);
-
-            if (order.IsCompleted == true)
+            if (User.IsInRole("admin"))
             {
-                await dataManager.Requests.DeleteRequestAsync(order);
-            }
+                var order = await dataManager.Requests.GetRequestByIdAsync(id);
 
+                if (order.IsCompleted == true)
+                {
+                    await dataManager.Requests.DeleteRequestAsync(order);
+                }
+            }
             return RedirectToAction(nameof(RequestsController.Index),
                 nameof(RequestsController).Replace("Controller", string.Empty),
                 new { page = 1, completed = true });

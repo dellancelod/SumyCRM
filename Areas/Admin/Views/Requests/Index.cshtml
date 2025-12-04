@@ -87,7 +87,7 @@
                                     <span>@item.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</span>
                                 </label>
                             </td>
-                            
+
 
                             <td>
                                 <a asp-area="Admin" asp-controller="Requests" asp-action="Show" asp-route-id="@item.Id">
@@ -95,23 +95,26 @@
                                 </a>
                             </td>
                             <td>
-                                @if (item.IsCompleted)
+                                @if (User.IsInRole("admin"))
                                 {
-                                    <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Requests" asp-action="Delete" method="post" class="d-inline">
-                                        <input type="hidden" name="id" value="@item.Id" />
-                                        <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
-                                            <i class="fa fa-trash"></i>
-                                        </button>
-                                    </form>
-                                }
-                                else
-                                {
-                                    <form asp-area="Admin" asp-controller="Requests" asp-action="CompleteRequest" method="post">
-                                        <input type="hidden" name="id" value="@item.Id" />
-                                        <button type="submit" class="btn btn-success">
-                                            <i class="fa-solid fa-square-check fa-lg"></i>
-                                        </button>
-                                    </form>
+                                    @if (item.IsCompleted)
+                                    {
+                                        <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Requests" asp-action="Delete" method="post" class="d-inline">
+                                            <input type="hidden" name="id" value="@item.Id" />
+                                            <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form asp-area="Admin" asp-controller="Requests" asp-action="CompleteRequest" method="post">
+                                            <input type="hidden" name="id" value="@item.Id" />
+                                            <button type="submit" class="btn btn-success">
+                                                <i class="fa-solid fa-square-check fa-lg"></i>
+                                            </button>
+                                        </form>
+                                    }
                                 }
                             </td>
 

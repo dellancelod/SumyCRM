@@ -62,8 +62,10 @@ namespace SumyCRM.Areas.Admin.Controllers
         [HttpPost]
         public async Task<IActionResult> Delete(Guid id)
         {
-            await dataManager.Facilities.DeleteFacilityAsync(id);
-
+            if (User.IsInRole("admin"))
+            {
+                await dataManager.Facilities.DeleteFacilityAsync(id);
+            }
             // тут, думаю, у тебя вообще должна быть редирект на ScheduleController, а не CategoriesController
             return RedirectToAction(
                 nameof(FacilitiesController.Index),

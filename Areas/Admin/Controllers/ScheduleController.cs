@@ -90,30 +90,32 @@ namespace SumyCRM.Areas.Admin.Controllers
         [HttpPost]
         public async Task<IActionResult> Delete(Guid id)
         {
-            var schedule = await dataManager.Schedules.GetScheduleByIdAsync(id);
-            if (schedule != null && !string.IsNullOrWhiteSpace(schedule.AudioFileName))
+            if (User.IsInRole("admin"))
             {
-                // AudioFileName у тебя без расширения: "schedule_12_uk"
-                var fileName = schedule.AudioFileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
-                    ? schedule.AudioFileName
-                    : schedule.AudioFileName + ".wav";
-
-                var fullPath = Path.Combine(_soundsPath, fileName);
-
-                try
+                var schedule = await dataManager.Schedules.GetScheduleByIdAsync(id);
+                if (schedule != null && !string.IsNullOrWhiteSpace(schedule.AudioFileName))
                 {
-                    if (System.IO.File.Exists(fullPath))
+                    // AudioFileName у тебя без расширения: "schedule_12_uk"
+                    var fileName = schedule.AudioFileName.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)
+                        ? schedule.AudioFileName
+                        : schedule.AudioFileName + ".wav";
+
+                    var fullPath = Path.Combine(_soundsPath, fileName);
+
+                    try
                     {
-                        System.IO.File.Delete(fullPath);
+                        if (System.IO.File.Exists(fullPath))
+                        {
+                            System.IO.File.Delete(fullPath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
                     }
                 }
-                catch (Exception ex)
-                {
-                }
+
+                await dataManager.Schedules.DeleteScheduleAsync(id);
             }
-
-            await dataManager.Schedules.DeleteScheduleAsync(id);
-
             // тут, думаю, у тебя вообще должна быть редирект на ScheduleController, а не CategoriesController
             return RedirectToAction(
                 nameof(ScheduleController.Index),

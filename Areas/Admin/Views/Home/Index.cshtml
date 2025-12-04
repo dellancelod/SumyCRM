@@ -12,10 +12,14 @@
             <span class="badge bg-success">Виконані: @Model.CompletedCount</span>
         </div>
     </div>
-    <div class="col-md-4">
-        <h4>Категорії</h4>
-        <canvas id="categoriesDonut"></canvas>
-    </div>
+    @if (User.IsInRole("admin"))
+    {
+        <div class="col-md-4">
+            <h4>Категорії</h4>
+            <canvas id="categoriesDonut"></canvas>
+        </div>
+    }
+
 </div>
 
 @section Scripts {

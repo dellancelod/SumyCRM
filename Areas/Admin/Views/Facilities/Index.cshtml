@@ -21,7 +21,10 @@
                     <th scope="col">Опис</th>
                     <th scope="col">Адреса</th>
                     <th scope="col">Телефон</th>
-                    <th scope="col">Дії</th>
+                    @if (User.IsInRole("admin"))
+                    {
+                        <th scope="col">Дії</th>
+                    }
                 </tr>
             </thead>
             <tbody>
@@ -42,16 +45,19 @@
                             @($"{item.Phones}")
                         </td>
                         <td>
-                            <a asp-area="Admin" asp-controller="Facilities" asp-action="Edit" asp-route-id="@item.Id">
-                                <i class="fa-regular fa-pen-to-square"></i>
-                            </a>
-
-                            <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Facilities" asp-action="Delete" method="post" class="d-inline">
-                                <input type="hidden" name="id" value="@item.Id" />
-                                <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
-                                    <i class="fa fa-trash"></i>
-                                </button>
-                            </form>
+                            @if (User.IsInRole("admin"))
+                            {
+                                <a asp-area="Admin" asp-controller="Facilities" asp-action="Edit" asp-route-id="@item.Id">
+                                    <i class="fa-regular fa-pen-to-square"></i>
+                                </a>
+                            
+                                <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Facilities" asp-action="Delete" method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </form>
+                            }
                         </td>
                     </tr>
                     itemIndex += 1;
