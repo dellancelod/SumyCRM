@@ -16,7 +16,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         }
         public async Task<IActionResult> Index(int page = 1, bool completed = false)
         {
-            int pageSize = 7; // Items per page
+            int pageSize = 3; // Items per page
 
             var requests = await dataManager.Requests.GetRequests()
                 .Include(r => r.Category)
