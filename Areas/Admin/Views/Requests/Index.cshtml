@@ -95,16 +95,18 @@
                                 </a>
                             </td>
                             <td>
-                                @if (User.IsInRole("admin"))
-                                {
+
                                     @if (item.IsCompleted)
                                     {
-                                        <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Requests" asp-action="Delete" method="post" class="d-inline">
-                                            <input type="hidden" name="id" value="@item.Id" />
-                                            <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
-                                                <i class="fa fa-trash"></i>
-                                            </button>
-                                        </form>
+                                        @if (User.IsInRole("admin"))
+                                        {
+                                            <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Requests" asp-action="Delete" method="post" class="d-inline">
+                                                <input type="hidden" name="id" value="@item.Id" />
+                                                <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        }
                                     }
                                     else
                                     {
@@ -115,7 +117,6 @@
                                             </button>
                                         </form>
                                     }
-                                }
                             </td>
 
                         </tr>

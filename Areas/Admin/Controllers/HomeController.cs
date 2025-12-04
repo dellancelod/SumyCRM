@@ -1,10 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OpenAI.Audio;
 using SumyCRM.Areas.Admin.Models;
 using SumyCRM.Data;
 using SumyCRM.Models;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
@@ -12,10 +14,12 @@ namespace SumyCRM.Areas.Admin.Controllers
     public class HomeController : Controller
     {
         private readonly DataManager _dataManager;
+        private readonly UserManager<IdentityUser> _userManager;
 
-        public HomeController(DataManager dataManager)
+        public HomeController(DataManager dataManager, UserManager<IdentityUser> userManager)
         {
             _dataManager = dataManager;
+            _userManager = userManager;
         }
 
         // Show all requests
@@ -27,9 +31,22 @@ namespace SumyCRM.Areas.Admin.Controllers
                .Include(r => r.Category)// если есть DateAdded / CreatedAt
                .ToList();
 
+            if (!User.IsInRole("admin"))
+            {
+                var userId = _userManager.GetUserId(User);
+
+                var allowedCategoryIds = _dataManager.UserCategories.GetUserCategories()
+                        .Where(uc => uc.UserId == userId)
+                    .Select(uc => uc.CategoryId)
+                    .ToList();
+
+                requests = requests.Where(r => allowedCategoryIds.Contains(r.CategoryId)).ToList();
+            }
+
             var activeCount = requests.Count(r => !r.IsCompleted);
             var completedCount = requests.Count(r => r.IsCompleted);
 
+            
             var vm = new DashboardViewModel
             {
                 Requests = requests,
