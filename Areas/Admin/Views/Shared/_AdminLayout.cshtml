@@ -13,7 +13,7 @@
         @await Html.PartialAsync("_SideBarLayout")
         <div id="content">
             @await Html.PartialAsync("_TopBarLayout")
-            <div class=" p-3 admin-body">
+            <div id="scrollable-content" class=" p-3 admin-body">
                 @RenderBody()
             </div>
         </div>
