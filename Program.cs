@@ -13,6 +13,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddTransient<IRequestsRepository, EFRequestsRepository>();
 builder.Services.AddTransient<ICategoriesRepository, EFCategoriesRepository>();
 builder.Services.AddTransient<ISchedulesRepository, EFSchedulesRepository>();
+builder.Services.AddTransient<IFacilitiesRepository, EFFacilitiesRepository>();
 builder.Services.AddHttpClient<IScheduleAudioService, ScheduleAudioService>();
 builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options

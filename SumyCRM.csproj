@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <None Include="bundleconfig.json" />
+    <None Include="Data\Repository\EntityFramework\EFFacilitiesRepository.cs" />
   </ItemGroup>
 
 </Project>

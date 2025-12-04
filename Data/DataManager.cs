@@ -7,12 +7,14 @@ namespace SumyCRM.Data
         public IRequestsRepository Requests { get; set; }
         public ICategoriesRepository Categories { get; set; }
         public ISchedulesRepository Schedules { get; set; }
+        public IFacilitiesRepository Facilities { get; set; }
 
         public DataManager(IRequestsRepository requests, ICategoriesRepository categories,
-            ISchedulesRepository schedules) { 
+            ISchedulesRepository schedules, IFacilitiesRepository facilities) { 
             Requests = requests;
             Categories = categories;
             Schedules = schedules;
+            Facilities = facilities;
         }
     }
 }

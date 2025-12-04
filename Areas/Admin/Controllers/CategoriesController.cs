@@ -10,11 +10,9 @@ namespace SumyCRM.Areas.Admin.Controllers
     public class CategoriesController : Controller
     {
         private readonly DataManager dataManager;
-        private readonly IWebHostEnvironment hostEnvironment;
-        public CategoriesController(DataManager dataManager, IWebHostEnvironment hostEnvironment)
+        public CategoriesController(DataManager dataManager)
         {
             this.dataManager = dataManager;
-            this.hostEnvironment = hostEnvironment;
         }
         public async Task<IActionResult> Index(int page = 1)
         {
