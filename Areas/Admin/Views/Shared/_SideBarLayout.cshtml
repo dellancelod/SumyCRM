@@ -1,4 +1,4 @@
-﻿<nav id="sidebar" class="navbar-light bg-white topbar mb-4 static-top shadow border-end border-dark border-2">
+﻿<nav id="sidebar" class="navbar-light bg-white topbar mb-4 static-top shadow border-end border-dark border-2 active">
     <div class="sidebar-header bg-white">
         <a asp-area="Admin" asp-controller="Home" asp-action="Index">
             <h3>SumyCRM</h3>
@@ -6,7 +6,13 @@
         </a>
     </div>
 
-    <ul class="list-unstyled components">
+    <ul class="list-unstyled components p-2">
+        <li>
+            <a asp-area="Admin" asp-controller="Home" asp-action="Index">
+                <i class="fa-solid fa-chart-pie"></i>
+                Головна сторінка
+            </a>
+        </li>
         <li>
             <a href="#productsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                 <i class="fa-solid fa-address-book"></i>
@@ -15,9 +21,6 @@
             <ul class="collapse list-unstyled" id="productsSubmenu">
                 <li>
                     <a asp-area="Admin" asp-controller="Categories" asp-action="Index">Всі категорії</a>
-                </li>
-                <li>
-                    <a asp-area="Admin" asp-controller="Transport" asp-action="Index">Мапа транспорту</a>
                 </li>
                 <li>
                     <a asp-area="Admin" asp-controller="Schedule" asp-action="Index">Графіки руху</a>
@@ -31,7 +34,6 @@
             <a href="#ordersSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                 <span class="order-count">0</span>
                 Звернення
-                
             </a>
             <ul class="collapse list-unstyled" id="ordersSubmenu">
                 <li>
@@ -43,25 +45,14 @@
             </ul>
         </li>
         <li>
-            <a href="#pagesSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
-                <i class="fa-solid fa-gear"></i>
-                Налаштування
+            <a asp-area="Admin" asp-controller="Transport" asp-action="Index">
+                <i class="fa-regular fa-map"></i>
+                Мапа транспорту
             </a>
-            <ul class="collapse list-unstyled" id="pagesSubmenu">
-                <li>
-                    <a asp-area="Admin" asp-controller="Pages" asp-action="Index">Сторінки</a>
-                </li>
-                <li>
-                    <a asp-area="Admin" asp-controller="Home" asp-action="EditPoster">Постер</a>
-                </li>
-                <li>
-                    <a asp-area="Admin" asp-controller="SocialLinks" asp-action="Index">Посилання на соцмережі</a>
-                </li>
-            </ul>
         </li>
         <li>
             <a asp-area="" asp-controller="Home" asp-action="Index">
-                <i class="fas fa-home"></i>
+                <i class="fa-solid fa-right-to-bracket"></i>
                 На вхід
             </a>
         </li>

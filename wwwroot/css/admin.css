@@ -353,7 +353,7 @@ a[aria-expanded="true"] {
 
     #sidebar ul li.active > a,
     a[aria-expanded="true"] i {
-        color: #ff4444;
+        color: #0d6efd;
     }
 
 
@@ -781,6 +781,32 @@ h6, .h6 {
 /* Shrink audio player so it fits nicely */
 .table audio {
     width: 150px; /* or 120px, choose what looks better */
+}
+    /* Стиль для елементів меню */
+    #sidebar ul.components > li > a {
+        display: block;
+        padding: 12px 15px;
+        color: #333;
+        text-decoration: none;
+        transition: all 0.2s ease-in-out;
+        border-radius: 4px;
+    }
+
+    /* Ховер-ефект */
+    #sidebar ul.components > li > a:hover {
+        background-color: #0d6efd;
+        color: #fff !important;
+        box-shadow: 0 0 10px rgba(13, 110, 253, 0.6);
+        transform: translateX(3px);
+    }
+
+    /* Щоб іконки теж міняли колір */
+    #sidebar ul.components > li > a:hover i {
+        color: white !important;
+    }
+
+#sidebar.active .dropdown-toggle {
+    white-space: normal !important; /* allow wrapping and stacking */
 }
 /*
 The MIT License (MIT)
