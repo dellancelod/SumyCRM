@@ -18,14 +18,12 @@ namespace SumyCRM.Controllers
         private readonly UserManager<IdentityUser> userManager;
         private readonly SignInManager<IdentityUser> signInManager;
 
-        private readonly string _apiKey;
         private readonly DataManager _dataManager;
         public HomeController(UserManager<IdentityUser> userMgr, SignInManager<IdentityUser> signInMgr,
-            DataManager dataManager, AppDbContext db, IConfiguration config)
+            DataManager dataManager, AppDbContext db)
         {
             userManager = userMgr;
             signInManager = signInMgr;
-            _apiKey = config["OpenAI:ApiKey"];
             _dataManager = dataManager;
         }
         [AllowAnonymous]
