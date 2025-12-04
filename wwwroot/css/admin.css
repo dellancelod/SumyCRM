@@ -808,6 +808,67 @@ h6, .h6 {
 #sidebar.active .dropdown-toggle {
     white-space: normal !important; /* allow wrapping and stacking */
 }
+
+.dashboard-card {
+    border-radius: 16px;
+    background: #fff;
+}
+
+.dashboard-card-active {
+    background: linear-gradient(135deg, #e8f5e9, #ffffff);
+}
+
+.dashboard-card-completed {
+    background: linear-gradient(135deg, #ffebee, #ffffff);
+}
+
+.dashboard-card-total {
+    background: linear-gradient(135deg, #e3f2fd, #ffffff);
+}
+
+.card-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6c757d;
+}
+
+.card-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+}
+
+.card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #0d6efd;
+}
+
+.bg-success-subtle {
+    background-color: rgba(76, 175, 80, 0.15);
+}
+
+.bg-danger-subtle {
+    background-color: rgba(244, 67, 54, 0.15);
+}
+
+.bg-primary-subtle {
+    background-color: rgba(13, 110, 253, 0.15);
+}
+
+.category-legend li {
+    padding: 2px 0;
+    border-bottom: 1px dashed #eee;
+}
+
+    .category-legend li:last-child {
+        border-bottom: none;
+    }
 /*
 The MIT License (MIT)
 
