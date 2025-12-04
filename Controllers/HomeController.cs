@@ -29,7 +29,7 @@ namespace SumyCRM.Controllers
         [AllowAnonymous]
         public IActionResult Index()
         {
-            ViewBag.Title = "Ћог≥н";
+            ViewBag.Title = "¬х≥д";
             return View(new LoginViewModel());
         }
 
