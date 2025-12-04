@@ -31,17 +31,13 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             var model = new PaginationViewModel<Request>
             {
-                PageItems = requests,
+                PageItems = pageItems,
                 CurrentPage = page,
                 TotalPages = (int)Math.Ceiling(requests.Count() / (double)pageSize)
             };
 
-            ViewBag.AreCompleted = false;
+            ViewBag.AreCompleted = completed;
 
-            if (completed == true)
-            {
-                ViewBag.AreCompleted = true;
-            }
 
             return View(model);
         }
