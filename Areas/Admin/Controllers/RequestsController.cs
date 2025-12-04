@@ -3,6 +3,8 @@ using SumyCRM.Data;
 using SumyCRM.Areas.Admin.Models;
 using SumyCRM.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
@@ -10,35 +12,55 @@ namespace SumyCRM.Areas.Admin.Controllers
     public class RequestsController : Controller
     {
         private readonly DataManager dataManager;
-        public RequestsController(DataManager dataManager)
+        private readonly UserManager<IdentityUser> _userManager;
+        public RequestsController(DataManager dataManager, UserManager<IdentityUser> userManager)
         {
             this.dataManager = dataManager;
+            _userManager = userManager;
         }
         public async Task<IActionResult> Index(int page = 1, bool completed = false)
         {
-            int pageSize = 3; // Items per page
+            int pageSize = 3;
 
-            var requests = await dataManager.Requests.GetRequests()
+            // ← БАЗОВЫЙ запрос как IQueryable
+            var query = dataManager.Requests.GetRequests()
                 .Include(r => r.Category)
-                .Where(x => x.IsCompleted == completed)
-                .OrderBy(x => x.RequestNumber)
+                .Where(r => r.IsCompleted == completed)
+                .OrderBy(r => r.RequestNumber)
+                .AsQueryable();
+
+            // ← НЕ АДМИН — фильтруем по категориям
+            if (!User.IsInRole("admin"))
+            {
+                var userId = _userManager.GetUserId(User);
+
+                var allowedCategoryIds = await dataManager.UserCategories.GetUserCategories()
+                        .Where(uc => uc.UserId == userId)
+                        .Select(uc => uc.CategoryId)
+                        .ToListAsync();
+
+                query = query.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+            }
+
+            // ← Общее количество после всех фильтров
+            var total = await query.CountAsync();
+
+            // ← Текущая страница
+            var pageItems = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            var pageItems = requests
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize);
-
-
+            // Модель
             var model = new PaginationViewModel<Request>
             {
                 PageItems = pageItems,
                 CurrentPage = page,
-                TotalPages = (int)Math.Ceiling(requests.Count() / (double)pageSize),
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                 PageSize = pageSize
             };
 
             ViewBag.AreCompleted = completed;
-
 
             return View(model);
         }
@@ -81,13 +103,28 @@ namespace SumyCRM.Areas.Admin.Controllers
         }
         public IActionResult LoadRequests()
         {
-            var ordersCount = dataManager.Requests.GetRequests().Count(o => o.IsCompleted == false);
+            var query = dataManager.Requests.GetRequests()
+                .Include(r => r.Category)
+                .Where(r => r.IsCompleted == false)
+                .OrderBy(r => r.RequestNumber)
+                .AsQueryable();
 
+            if (!User.IsInRole("admin"))
+            {
+                var userId = _userManager.GetUserId(User);
+
+                var allowedCategoryIds = dataManager.UserCategories.GetUserCategories()
+                        .Where(uc => uc.UserId == userId)
+                        .Select(uc => uc.CategoryId)
+                        .ToList();
+
+                query = query.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+            }
 
             return Json(new
             {
                 success = true,
-                totalQuantity = ordersCount
+                totalQuantity = query
             });
         }
     }
