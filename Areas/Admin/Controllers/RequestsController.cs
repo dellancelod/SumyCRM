@@ -33,7 +33,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 PageItems = pageItems,
                 CurrentPage = page,
-                TotalPages = (int)Math.Ceiling(requests.Count() / (double)pageSize)
+                TotalPages = (int)Math.Ceiling(requests.Count() / (double)pageSize),
+                PageSize = pageSize
             };
 
             ViewBag.AreCompleted = completed;

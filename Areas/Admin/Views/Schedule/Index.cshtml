@@ -1,7 +1,7 @@
 ﻿@using SumyCRM.Areas.Admin.Models
 @model PaginationViewModel<Schedule>
 @{
-    uint itemIndex = 1;
+    int itemIndex = (Model.CurrentPage - 1) * Model.PageSize + 1;
 }
 <div class="d-flex">
 

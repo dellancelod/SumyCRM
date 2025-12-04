@@ -41,7 +41,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 PageItems = pageItems,
                 CurrentPage = page,
-                TotalPages = (int)Math.Ceiling(schedules.Count() / (double)pageSize)
+                TotalPages = (int)Math.Ceiling(schedules.Count() / (double)pageSize),
+                PageSize = pageSize
             };
 
             return View(model);
