@@ -45,7 +45,7 @@ builder.Services.ConfigureApplicationCookie(options => {
 //Configure Authorization policy for admin area
 builder.Services.AddAuthorization(x => {
     x.AddPolicy("AdminArea", policy => {
-        policy.RequireRole("admin");
+        policy.RequireRole("admin", "operator");
     });
 });
 

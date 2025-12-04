@@ -124,7 +124,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             return Json(new
             {
                 success = true,
-                totalQuantity = query
+                totalQuantity = query.Count()
             });
         }
     }
