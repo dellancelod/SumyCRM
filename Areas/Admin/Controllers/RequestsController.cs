@@ -31,7 +31,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             var query = dataManager.Requests.GetRequests()
                 .Include(r => r.Category)
                 .Where(r => r.IsCompleted == completed)
-                .OrderBy(r => r.RequestNumber)
+                .OrderByDescending(r => r.RequestNumber)
                 .AsQueryable();
 
             // НЕ админ — фильтруем по доступным категориям
