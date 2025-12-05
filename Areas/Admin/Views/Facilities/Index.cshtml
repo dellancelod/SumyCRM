@@ -166,81 +166,113 @@
             });
         })();
 
-                // ===== LIVE SEARCH =====
+        // ===== LIVE SEARCH FOR REQUESTS =====
         (function () {
-            const searchInput = document.getElementById('facilitySearch');
-            const tableBody = document.getElementById('facilitiesTableBody');
-            const isAdmin = @User.IsInRole("admin").ToString().ToLower(); // true/false
-
-            let typingTimer = null;
+            const searchInput = document.getElementById('requestSearch');
+            const tableBody = document.getElementById('requestsTableBody');
+            const paginationNav = document.getElementById('paginationNav');
 
             if (!searchInput || !tableBody) return;
+
+            const isAdmin = @User.IsInRole("admin").ToString().ToLower();
+            const areCompleted = @((bool)ViewBag.AreCompleted ? "true" : "false");
+
+            let typingTimer = null;
 
             searchInput.addEventListener('input', function () {
                 const term = this.value;
 
-                // невелика затримка, щоб не спамити сервер
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(function () {
+
                     if (term.trim().length === 0) {
-                        // якщо поле очищене — просто перезавантажимо сторінку,
-                        // щоб повернути стандартну пагінацію
-                        window.location.href = '@Url.Action("Index", "Facilities", new { area = "Admin" })';
+                        // show pagination again
+                        paginationNav.style.display = 'block';
+                        window.location.reload();
                         return;
                     }
 
-                    fetch('@Url.Action("Search", "Facilities", new { area = "Admin" })' + '?term=' + encodeURIComponent(term))
+                    // hide pagination while searching
+                    paginationNav.style.display = 'none';
+
+                    const url = '@Url.Action("Search", "Requests", new { area = "Admin" })'
+                        + '?term=' + encodeURIComponent(term)
+                        + '&completed=' + areCompleted;
+
+                    fetch(url)
                         .then(r => r.json())
                         .then(data => {
                             tableBody.innerHTML = '';
 
                             if (!data || data.length === 0) {
+                                const colCount = isAdmin ? 11 : 10;
                                 tableBody.innerHTML =
-                                    '<tr><td colspan="' + (isAdmin ? 6 : 5) + '" class="text-center text-muted">Нічого не знайдено</td></tr>';
+                                    `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
                                 return;
                             }
 
-                            data.forEach(function (f) {
+                            data.forEach(item => {
                                 const tr = document.createElement('tr');
-                                if (f.hidden) {
-                                    tr.classList.add('table-hidden');
+
+                                let audioHtml = '';
+                                if (item.nameAudio) {
+                                    audioHtml += `
+                                        <label><span><audio controls src="${item.nameAudio}"></audio></span></label>`;
+                                }
+                                if (item.audio) {
+                                    audioHtml += `
+                                        <label><span><audio controls src="${item.audio}"></audio></span></label>`;
                                 }
 
                                 let actionsHtml = '';
-                                if (isAdmin) {
-                                    actionsHtml = `
-                                        <td>
-                                            <a href="@Url.Action("Edit", "Facilities", new { area = "Admin" })/${f.id}">
-                                                <i class="fa-regular fa-pen-to-square"></i>
-                                            </a>
-                                            <form style="display:inline-block;" id="form-${f.id}"
-                                                  action="@Url.Action("Delete", "Facilities", new { area = "Admin" })"
+                                if (item.isCompleted) {
+                                    if (isAdmin) {
+                                        actionsHtml = `
+                                            <form style="display:inline-block;" id="form-${item.id}"
+                                                  action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
                                                   method="post" class="d-inline">
-                                                <input type="hidden" name="id" value="${f.id}" />
+                                                <input type="hidden" name="id" value="${item.id}" />
                                                 <button type="button" class="btn btn-sm btn-danger"
-                                                        onclick="confirmDelete('${f.id}')">
+                                                        onclick="confirmDelete('${item.id}')">
                                                     <i class="fa fa-trash"></i>
                                                 </button>
-                                            </form>
-                                        </td>`;
+                                            </form>`;
+                                    }
+                                } else {
+                                    actionsHtml = `
+                                        <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
+                                              method="post">
+                                            <input type="hidden" name="id" value="${item.id}" />
+                                            <button type="submit" class="btn btn-success">
+                                                <i class="fa-solid fa-square-check fa-lg"></i>
+                                            </button>
+                                        </form>`;
                                 }
 
                                 tr.innerHTML = `
-                                    <th scope="row">${f.index}</th>
-                                    <td>${f.name ?? ''}</td>
-                                    <td>${f.description ?? ''}</td>
-                                    <td>${f.address ?? ''}</td>
-                                    <td>${f.phones ?? ''}</td>
-                                    ${actionsHtml}
+                                    <th scope="row">${item.index}</th>
+                                    <td>${item.requestNumber ?? ''}</td>
+                                    <td>${item.name ?? ''}</td>
+                                    <td>${item.caller ?? ''}</td>
+                                    <td>${item.category ?? ''}</td>
+                                    <td>${item.subcategory ?? ''}</td>
+                                    <td>${item.text ?? ''}</td>
+                                    <td>${audioHtml}</td>
+                                    <td>${item.date ?? ''}</td>
+                                    <td>
+                                        <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${item.id}">
+                                            <i class="fa-solid fa-eye fa-lg"></i>
+                                        </a>
+                                    </td>
+                                    <td>${actionsHtml}</td>
                                 `;
+
                                 tableBody.appendChild(tr);
                             });
                         })
-                        .catch(err => {
-                            console.error('Facility search error:', err);
-                        });
+                        .catch(err => console.error('Requests search error:', err));
 
-                }, 300); // 300 мс debounce
+                }, 300);
             });
         })();
     </script>

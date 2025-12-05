@@ -28,11 +28,13 @@
                    placeholder="Пошук звернення..." />
         </div>
     </div>
-    <form method="get" class="row g-2 align-items-end mb-3">
+    
+</div>
+<form method="get" class="row g-2 align-items-end mb-3">
 
     <!-- сохраняем completed и стартовую страницу -->
     <input type="hidden" name="completed" value="@((bool)ViewBag.AreCompleted)" />
-    <input type="hidden" name="page" value="@Model.CurrentPage" />
+    <input type="hidden" name="page" value="1" />
 
     <div class="col-md-4">
         <label class="form-label form-label-sm">Категорія</label>
@@ -41,12 +43,12 @@
             @foreach (var cat in categories)
             {
                 var selected = selectedCategoryId.HasValue && selectedCategoryId.Value == cat.Id
-                    ? "selected"
-                    : "";
-                    <option value="@cat.Id"
-                            selected="@(selectedCategoryId.HasValue && selectedCategoryId.Value == cat.Id)">
-                        @cat.Title
-                    </option>
+                ? "selected"
+                : "";
+                <option value="@cat.Id"
+                        selected="@(selectedCategoryId.HasValue && selectedCategoryId.Value == cat.Id)">
+                    @cat.Title
+                </option>
             }
         </select>
     </div>
@@ -77,7 +79,6 @@
         </a>
     </div>
 </form>
-</div>
 <div>
     @if (Model.PageItems.Any())
     {

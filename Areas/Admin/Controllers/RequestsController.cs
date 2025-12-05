@@ -25,7 +25,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             DateTime? dateFrom = null,
             DateTime? dateTo = null)
         {
-            int pageSize = 3;
+            int pageSize = 8;
 
             // базовый запрос
             var query = dataManager.Requests.GetRequests()
