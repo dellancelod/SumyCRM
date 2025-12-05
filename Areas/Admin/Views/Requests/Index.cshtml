@@ -30,10 +30,14 @@
     </div>
     
 </div>
-<form method="get" class="row g-2 align-items-end mb-3">
+<form method="get"
+      asp-area="Admin"
+      asp-controller="Requests"
+      asp-action="Index"
+      asp-route-completed="@((bool)ViewBag.AreCompleted)"
+      class="row g-2 align-items-end mb-3">
 
     <!-- сохраняем completed и стартовую страницу -->
-    <input type="hidden" name="completed" value="@((bool)ViewBag.AreCompleted)" />
     <input type="hidden" name="page" value="1" />
 
     <div class="col-md-4">
