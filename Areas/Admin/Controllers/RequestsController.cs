@@ -18,40 +18,65 @@ namespace SumyCRM.Areas.Admin.Controllers
             this.dataManager = dataManager;
             _userManager = userManager;
         }
-        public async Task<IActionResult> Index(int page = 1, bool completed = false)
+        public async Task<IActionResult> Index(
+            int page = 1,
+            bool completed = false,
+            Guid? categoryId = null,
+            DateTime? dateFrom = null,
+            DateTime? dateTo = null)
         {
-            int pageSize = 8;
+            int pageSize = 3;
 
-            // ← БАЗОВЫЙ запрос как IQueryable
+            // базовый запрос
             var query = dataManager.Requests.GetRequests()
                 .Include(r => r.Category)
                 .Where(r => r.IsCompleted == completed)
-                .OrderByDescending(r => r.RequestNumber)
+                .OrderBy(r => r.RequestNumber)
                 .AsQueryable();
 
-            // ← НЕ АДМИН — фильтруем по категориям
+            // НЕ админ — фильтруем по доступным категориям
             if (!User.IsInRole("admin"))
             {
                 var userId = _userManager.GetUserId(User);
 
                 var allowedCategoryIds = await dataManager.UserCategories.GetUserCategories()
-                        .Where(uc => uc.UserId == userId)
-                        .Select(uc => uc.CategoryId)
-                        .ToListAsync();
+                    .Where(uc => uc.UserId == userId)
+                    .Select(uc => uc.CategoryId)
+                    .ToListAsync();
 
                 query = query.Where(r => allowedCategoryIds.Contains(r.CategoryId));
             }
 
-            // ← Общее количество после всех фильтров
+            // ====== ФИЛЬТР ПО КАТЕГОРИИ ======
+            if (categoryId.HasValue && categoryId.Value != Guid.Empty)
+            {
+                query = query.Where(r => r.CategoryId == categoryId.Value);
+            }
+
+            // ====== ФИЛЬТР ПО ДАТЕ ======
+            if (dateFrom.HasValue)
+            {
+                // от начала дня
+                var from = dateFrom.Value.Date;
+                query = query.Where(r => r.DateAdded >= from);
+            }
+
+            if (dateTo.HasValue)
+            {
+                // до конца дня (включительно)
+                var to = dateTo.Value.Date.AddDays(1);
+                query = query.Where(r => r.DateAdded < to);
+            }
+
+            // общее количество после фильтров
             var total = await query.CountAsync();
 
-            // ← Текущая страница
+            // текущая страница
             var pageItems = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            // Модель
             var model = new PaginationViewModel<Request>
             {
                 PageItems = pageItems,
@@ -61,6 +86,17 @@ namespace SumyCRM.Areas.Admin.Controllers
             };
 
             ViewBag.AreCompleted = completed;
+
+            // подкинем фильтры обратно в ViewBag, чтобы сохранить значения в инпутах
+            ViewBag.SelectedCategoryId = categoryId;
+            ViewBag.DateFrom = dateFrom?.ToString("yyyy-MM-dd");
+            ViewBag.DateTo = dateTo?.ToString("yyyy-MM-dd");
+
+            // список категорий для select-а
+            var categories = await dataManager.Categories.GetCategories()
+                .OrderBy(c => c.Title)
+                .ToListAsync();
+            ViewBag.Categories = categories;
 
             return View(model);
         }
