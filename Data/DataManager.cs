@@ -9,16 +9,18 @@ namespace SumyCRM.Data
         public ISchedulesRepository Schedules { get; set; }
         public IFacilitiesRepository Facilities { get; set; }
         public IUserCategories UserCategories { get; set; }
+        public ICallRecordingsRepository CallRecordings { get; set; }
 
 
         public DataManager(IRequestsRepository requests, ICategoriesRepository categories,
             ISchedulesRepository schedules, IFacilitiesRepository facilities, 
-            IUserCategories userCategories) { 
+            IUserCategories userCategories, ICallRecordingsRepository callRecordings) { 
             Requests = requests;
             Categories = categories;
             Schedules = schedules;
             Facilities = facilities;
             UserCategories = userCategories;
+            CallRecordings = callRecordings;
         }
     }
 }

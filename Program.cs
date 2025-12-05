@@ -15,6 +15,7 @@ builder.Services.AddTransient<ICategoriesRepository, EFCategoriesRepository>();
 builder.Services.AddTransient<ISchedulesRepository, EFSchedulesRepository>();
 builder.Services.AddTransient<IFacilitiesRepository, EFFacilitiesRepository>();
 builder.Services.AddTransient<IUserCategories, EFUserCategories>();
+builder.Services.AddTransient<ICallRecordingsRepository, EFCallRecordingsRepository>();
 builder.Services.AddHttpClient<IScheduleAudioService, ScheduleAudioService>();
 builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options

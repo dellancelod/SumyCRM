@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using OpenAI.Audio;
 using SumyCRM.Data;
 using SumyCRM.Models;
+using static SumyCRM.Services.TranscriptService;
 using static SumyCRM.Services.CategoryConverter;
 
 namespace SumyCRM.Controllers
@@ -109,55 +110,62 @@ namespace SumyCRM.Controllers
 
             return Ok("Uploaded");
         }
-
-        private static readonly string[] NoisePhrases =
+        [HttpPost("record")]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken] // для curl / Asterisk
+        public async Task<IActionResult> Record(
+           [FromForm] IFormFile? audio,
+           [FromForm(Name = "caller")] string? caller,
+           [FromHeader(Name = "X-API-KEY")] string? apiKey)
         {
-            "дякую за перегляд",
-            "дякуємо за перегляд",
-            "спасибо за просмотр",
-            "thank you for watching"
-        };
+            string secret = _config["UploadSecret"];
+            if (apiKey != secret)
+                return Unauthorized("Invalid API Key");
 
-        private static string CleanTranscript(string? text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                return string.Empty;
+            if (audio == null || audio.Length == 0)
+                return BadRequest("No audio");
 
-            // Оригінал вирівнюємо для збереження (без \n навколо)
-            var trimmedOriginal = text.Trim();
+            if (string.IsNullOrWhiteSpace(caller))
+                caller = "unknown";
 
-            // Нормалізований варіант для порівняння:
-            // - в нижній регістр
-            // - без пунктуації
-            // - зі стиснутими пробілами
-            var noPunct = new string(
-                trimmedOriginal
-                    .ToLowerInvariant()
-                    .Where(c => !char.IsPunctuation(c))
-                    .ToArray()
-            );
+            // Куда сохранять записи
+            string folder = Path.Combine("wwwroot", "callrecords");
+            Directory.CreateDirectory(folder);
 
-            var normalized = string.Join(
-                " ",
-                noPunct
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            ).Trim();
+            // Имя файла: 20251205_134500_+380677673165_guid.wav
+            string ext = Path.GetExtension(audio.FileName);
+            if (string.IsNullOrEmpty(ext))
+                ext = ".wav"; // по умолчанию
 
-            // Якщо це одна з "шумових" фраз – вважаємо тишею
-            foreach (var phrase in NoisePhrases)
+            string safeCaller = caller.Replace("+", "").Replace(" ", "");
+            string fileName = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{safeCaller}_{Guid.NewGuid()}{ext}";
+            string fullPath = Path.Combine(folder, fileName);
+
+            using (var stream = new FileStream(fullPath, FileMode.Create))
             {
-                if (normalized == phrase ||
-                    normalized.StartsWith(phrase + " "))
-                {
-                    return string.Empty;
-                }
+                await audio.CopyToAsync(stream);
             }
 
-            // Дуже короткий текст теж можна вважати шумом
-            if (normalized.Length <= 3)
-                return string.Empty;
+            // Сохраняем запись в БД
+            var record = new CallRecording
+            {
+                // Если хочешь автонумерацию — можешь заменить на собственную логику
+                CallNumber = _dataManager.CallRecordings.GetCallRecordings().Count() + 1,
+                Caller = caller,
+                AudioFilePath = "/callrecords/" + fileName
+            };
 
-            return trimmedOriginal;
+            await _dataManager.CallRecordings.SaveCallRecordingAsync(record);
+
+            return Ok(new
+            {
+                message = "Call record saved",
+                id = record.Id,
+                number = record.CallNumber,
+                caller = record.Caller,
+                url = record.AudioFilePath
+            });
         }
+
     }
 }
