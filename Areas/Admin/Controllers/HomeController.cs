@@ -64,5 +64,48 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return View(vm);
         }
+        [HttpGet]
+        public IActionResult GetDashboardData()
+        {
+            var requestsQuery = _dataManager.Requests
+                .GetRequests()
+                .Include(r => r.Category)
+                .AsQueryable();
+
+            if (!User.IsInRole("admin"))
+            {
+                var userId = _userManager.GetUserId(User);
+
+                var allowedCategoryIds = _dataManager.UserCategories.GetUserCategories()
+                    .Where(uc => uc.UserId == userId)
+                    .Select(uc => uc.CategoryId)
+                    .ToList();
+
+                requestsQuery = requestsQuery.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+            }
+
+            var requests = requestsQuery.ToList();
+
+            var activeCount = requests.Count(r => !r.IsCompleted);
+            var completedCount = requests.Count(r => r.IsCompleted);
+
+            var categoryStats = requests
+                .GroupBy(r => r.Category?.Title ?? "Без категорії")
+                .Select(g => new
+                {
+                    name = g.Key ?? "Без категорії",
+                    count = g.Count()
+                })
+                .OrderByDescending(x => x.count)
+                .ToList();
+
+            return Json(new
+            {
+                activeCount,
+                completedCount,
+                categories = categoryStats,
+                serverTime = DateTime.Now.ToString("HH:mm:ss")
+            });
+        }
     }
 }
