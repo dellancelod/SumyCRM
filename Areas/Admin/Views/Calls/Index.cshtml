@@ -47,12 +47,14 @@
                         </td>
                         @if (User.IsInRole("admin"))
                         {
-                            <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Calls" asp-action="Delete" method="post" class="d-inline">
-                                <input type="hidden" name="id" value="@item.Id" />
-                                <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
-                                    <i class="fa fa-trash"></i>
-                                </button>
-                            </form>
+                            <td>
+                                <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Calls" asp-action="Delete" method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
                         }
                     </tr>
                     itemIndex += 1;
