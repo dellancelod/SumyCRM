@@ -74,11 +74,12 @@ namespace SumyCRM.Controllers
             };
             AudioTranscription transcriptionText =
                      await audioClient.TranscribeAudioAsync(fullPathText, options);
-            string transcriptText = transcriptionText.Text ?? "(empty)";
 
             AudioTranscription transcriptionName =
                      await audioClient.TranscribeAudioAsync(fullPathName, options);
-            string transcriptName = transcriptionName.Text ?? "(empty)";
+
+            string transcriptText = CleanTranscript(transcriptionText.Text);
+            string transcriptName = CleanTranscript(transcriptionName.Text);
 
             // ===== Save in DB =====
             if (!MenuToCategory.TryGetValue(menu_item, out var categoryId))
@@ -108,6 +109,35 @@ namespace SumyCRM.Controllers
 
             return Ok("Uploaded");
         }
-        
+
+        private static string CleanTranscript(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            var trimmed = text.Trim();
+
+            // типові «хвости» з відео/шуму
+            var noisePhrases = new[]
+            {
+                "дякую за перегляд",
+                "дякуємо за перегляд",
+                "спасибо за просмотр",
+                "thank you for watching"
+            };
+
+            if (noisePhrases.Any(p =>
+                    trimmed.Equals(p, StringComparison.OrdinalIgnoreCase) ||
+                    trimmed.StartsWith(p + " ", StringComparison.OrdinalIgnoreCase)))
+            {
+                return string.Empty;
+            }
+
+            // додатковий жорсткий фільтр на дуже короткий текст
+            if (trimmed.Length <= 3)
+                return string.Empty;
+
+            return trimmed;
+        }
     }
 }
