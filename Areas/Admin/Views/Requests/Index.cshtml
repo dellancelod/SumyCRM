@@ -138,7 +138,7 @@
         </div>
     }
     <!-- Pagination Controls -->
-    <nav>
+    <nav id="paginationNav">
         <ul class="pagination">
             @if (Model.TotalPages > 1)
 
@@ -226,9 +226,13 @@
 
                     if (term.trim().length === 0) {
                         // якщо поле очищене — повертаємося до звичайної пагінації
+                        paginationNav.style.display = 'block';
                         window.location.reload(); 
                         return;
                     }
+
+                    // hide pagination while searching
+                    paginationNav.style.display = 'none';
 
                     const url = '@Url.Action("Search", "Requests", new { area = "Admin" })'
                         + '?term=' + encodeURIComponent(term)
