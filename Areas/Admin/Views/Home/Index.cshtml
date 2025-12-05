@@ -119,6 +119,9 @@
                 second: '2-digit'
             });
         }
+        setInterval(() => {
+            document.getElementById('currentTime').textContent = formatTime(new Date());
+        }, 1000);
 
         async function refreshDashboard() {
             try {
@@ -135,6 +138,8 @@
                 }
 
                 const data = await response.json();
+
+                document.getElementById('lastUpdated').textContent = formatTime(new Date());
 
                 // Обновляем KPI-карточки
                 const activeEl = document.querySelector('.dashboard-card-active .card-value');
