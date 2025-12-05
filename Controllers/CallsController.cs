@@ -110,34 +110,54 @@ namespace SumyCRM.Controllers
             return Ok("Uploaded");
         }
 
+        private static readonly string[] NoisePhrases =
+        {
+            "дякую за перегляд",
+            "дякуємо за перегляд",
+            "спасибо за просмотр",
+            "thank you for watching"
+        };
+
         private static string CleanTranscript(string? text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return string.Empty;
 
-            var trimmed = text.Trim();
+            // Оригінал вирівнюємо для збереження (без \n навколо)
+            var trimmedOriginal = text.Trim();
 
-            // типові «хвости» з відео/шуму
-            var noisePhrases = new[]
-            {
-                "дякую за перегляд",
-                "дякуємо за перегляд",
-                "спасибо за просмотр",
-                "thank you for watching"
-            };
+            // Нормалізований варіант для порівняння:
+            // - в нижній регістр
+            // - без пунктуації
+            // - зі стиснутими пробілами
+            var noPunct = new string(
+                trimmedOriginal
+                    .ToLowerInvariant()
+                    .Where(c => !char.IsPunctuation(c))
+                    .ToArray()
+            );
 
-            if (noisePhrases.Any(p =>
-                    trimmed.Equals(p, StringComparison.OrdinalIgnoreCase) ||
-                    trimmed.StartsWith(p + " ", StringComparison.OrdinalIgnoreCase)))
+            var normalized = string.Join(
+                " ",
+                noPunct
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            ).Trim();
+
+            // Якщо це одна з "шумових" фраз – вважаємо тишею
+            foreach (var phrase in NoisePhrases)
             {
-                return string.Empty;
+                if (normalized == phrase ||
+                    normalized.StartsWith(phrase + " "))
+                {
+                    return string.Empty;
+                }
             }
 
-            // додатковий жорсткий фільтр на дуже короткий текст
-            if (trimmed.Length <= 3)
+            // Дуже короткий текст теж можна вважати шумом
+            if (normalized.Length <= 3)
                 return string.Empty;
 
-            return trimmed;
+            return trimmedOriginal;
         }
     }
 }
