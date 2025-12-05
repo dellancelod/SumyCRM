@@ -915,14 +915,6 @@ h6, .h6 {
     font-size: 13px;
 }
 
-/* Make labels and spans inline without extra padding */
-.compact-table label,
-.compact-table label span {
-    margin: 0;
-    padding: 0;
-    display: inline;
-    white-space: nowrap; /* prevents row wrapping */
-}
 
 /* Shrink audio controls */
 .compact-table audio {
