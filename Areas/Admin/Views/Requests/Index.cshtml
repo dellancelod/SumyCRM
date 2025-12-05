@@ -226,7 +226,7 @@
 
                     if (term.trim().length === 0) {
                         // якщо поле очищене — повертаємося до звичайної пагінації
-                        window.location.href = '@Url.Action("Index", "Requests", new { area = "Admin", page = 1, completed = (bool)ViewBag.AreCompleted })';
+                        window.location.reload(); 
                         return;
                     }
 
