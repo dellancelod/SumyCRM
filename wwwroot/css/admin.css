@@ -907,6 +907,33 @@ h6, .h6 {
     .category-legend li:last-child {
         border-bottom: none;
     }
+
+/* Reduce padding inside table cells */
+.compact-table td,
+.compact-table th {
+    padding: 2px 4px !important;
+    font-size: 13px;
+}
+
+/* Make labels and spans inline without extra padding */
+.compact-table label,
+.compact-table label span {
+    margin: 0;
+    padding: 0;
+    display: inline;
+    white-space: nowrap; /* prevents row wrapping */
+}
+
+/* Shrink audio controls */
+.compact-table audio {
+    width: 120px;
+    height: 18px;
+}
+
+/* Reduce row spacing */
+.compact-table tr {
+    height: 28px;
+}
 /*
 The MIT License (MIT)
 
