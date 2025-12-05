@@ -26,7 +26,6 @@
             })
             .catch(error => console.error('Error loading orders:', error));
     }
-    setTimeout(() => {
-            location.reload();
-    }, 10000); // every 10 seconds
+    setInterval(loadOrders, 10000);
+
 })();

@@ -7,7 +7,8 @@
         <p class="text-muted mb-0">Огляд звернень та категорій</p>
     </div>
     <div class="text-end small text-muted">
-        Оновлено: @DateTime.Now.ToString("dd.MM.yyyy HH:mm")
+        <div>Зараз: <span id="currentTime"></span></div>
+        <div>Оновлено дані: <span id="lastUpdated"></span></div>
     </div>
 </div>
 
@@ -18,7 +19,7 @@
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
                     <div class="card-label">Активні звернення</div>
-                    <div class="card-value text-success">@Model.ActiveCount</div>
+                    <div class="card-value text-success" id="activeCount">@Model.ActiveCount</div>
                 </div>
                 <div class="card-icon bg-success-subtle">
                     <i class="fa-solid fa-circle-play"></i>
@@ -31,7 +32,7 @@
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
                     <div class="card-label">Виконані звернення</div>
-                    <div class="card-value text-danger">@Model.CompletedCount</div>
+                    <div class="card-value text-danger" id="completedCount">@Model.CompletedCount</div>
                 </div>
                 <div class="card-icon bg-danger-subtle">
                     <i class="fa-solid fa-circle-check"></i>
@@ -46,7 +47,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <div class="card-label">Всього звернень</div>
-                        <div class="card-value">@Model.Requests.Count()</div>
+                        <div class="card-value" id="totalCount">@Model.Requests.Count()</div>
                     </div>
                     <div class="card-icon bg-primary-subtle">
                         <i class="fa-solid fa-list-check"></i>
@@ -108,22 +109,96 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
+        let requestsChart = null;
+        let categoriesChart = null;
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('uk-UA', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        async function refreshDashboard() {
+            try {
+                const url = '@Url.Action("GetDashboardData", "Home", new { area = "Admin" })';
+                const response = await fetch(url, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    console.error('Failed to fetch dashboard data', response.status);
+                    return;
+                }
+
+                const data = await response.json();
+
+                // Обновляем KPI-карточки
+                const activeEl = document.querySelector('.dashboard-card-active .card-value');
+                const completedEl = document.querySelector('.dashboard-card-completed .card-value');
+                const totalEl = document.querySelector('.dashboard-card-total .card-value');
+
+                if (activeEl) activeEl.textContent = data.activeCount;
+                if (completedEl) completedEl.textContent = data.completedCount;
+                if (totalEl) totalEl.textContent = data.activeCount + data.completedCount;
+
+                // Обновляем donut 1 (Активні / Виконані)
+                if (requestsChart) {
+                    requestsChart.data.datasets[0].data = [data.activeCount, data.completedCount];
+                    requestsChart.update();
+                }
+
+                // Обновляем donut 2 (категорії)
+                if (categoriesChart && data.categories) {
+                    categoriesChart.data.labels = data.categories.map(c => c.name);
+                    categoriesChart.data.datasets[0].data = data.categories.map(c => c.count);
+                    categoriesChart.update();
+
+                    // Обновляем легенду списком
+                    const legend = document.querySelector('.category-legend');
+                    if (legend) {
+                        legend.innerHTML = '';
+                        data.categories.forEach(c => {
+                            const li = document.createElement('li');
+                            li.className = 'd-flex justify-content-between';
+                            li.innerHTML = `<span>${c.name}</span><span class="fw-semibold">${c.count}</span>`;
+                            legend.appendChild(li);
+                        });
+                    }
+                }
+
+                // Обновляем время
+                const now = new Date();
+                const currentTimeEl = document.getElementById('currentTime');
+                const lastUpdatedEl = document.getElementById('lastUpdated');
+
+                if (currentTimeEl) currentTimeEl.textContent = formatTime(now);
+                if (lastUpdatedEl) lastUpdatedEl.textContent = data.serverTime ?? formatTime(now);
+
+            } catch (err) {
+                console.error('Error while refreshing dashboard', err);
+            }
+        }
+
         document.addEventListener("DOMContentLoaded", function () {
-            // ----- Donut 1: Active vs Completed -----
+            // ----- Инициализация Donut 1 -----
             const ctx1 = document.getElementById('requestsDonut').getContext('2d');
 
             const activeCount = @Model.ActiveCount;
             const completedCount = @Model.CompletedCount;
 
-            new Chart(ctx1, {
+            requestsChart = new Chart(ctx1, {
                 type: 'doughnut',
                 data: {
                     labels: ['Активні', 'Виконані'],
                     datasets: [{
                         data: [activeCount, completedCount],
                         backgroundColor: [
-                            'rgba(0, 200, 83, 0.7)',   // Green (Активні)
-                            'rgba(244, 67, 54, 0.7)'   // Red (Виконані)
+                            'rgba(0, 200, 83, 0.7)',
+                            'rgba(244, 67, 54, 0.7)'
                         ],
                         borderColor: [
                             'rgba(0, 200, 83, 1)',
@@ -142,7 +217,7 @@
                 }
             });
 
-            // ----- Donut 2: Categories (only for admin & if canvas exists) -----
+            // ----- Инициализация Donut 2 -----
             const catCanvas = document.getElementById('categoriesDonut');
             if (catCanvas) {
                 const ctx2 = catCanvas.getContext('2d');
@@ -159,7 +234,7 @@
                 )
             );
 
-                new Chart(ctx2, {
+                categoriesChart = new Chart(ctx2, {
                     type: 'doughnut',
                     data: {
                         labels: categoryLabels,
@@ -196,6 +271,17 @@
                     }
                 });
             }
+
+            // Первичная установка времени
+            const now = new Date();
+            const currentTimeEl = document.getElementById('currentTime');
+            if (currentTimeEl) currentTimeEl.textContent = formatTime(now);
+
+            // Первый запрос сразу
+            refreshDashboard();
+
+            // Дальше обновляем каждые 30 секунд (можешь поменять интервал)
+            setInterval(refreshDashboard, 10000);
         });
     </script>
 }
