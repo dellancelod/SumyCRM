@@ -20,7 +20,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         }
         public async Task<IActionResult> Index(int page = 1, bool completed = false)
         {
-            int pageSize = 3;
+            int pageSize = 8;
 
             // ← БАЗОВЫЙ запрос как IQueryable
             var query = dataManager.Requests.GetRequests()
