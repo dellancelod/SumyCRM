@@ -3,13 +3,31 @@
 @{
     int itemIndex = (Model.CurrentPage - 1) * Model.PageSize + 1;
 }
-<div class="d-flex">
-
-    <h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">
         Підприємства, установи та організації, що забезпечують життєдіяльність в місті
-        <a asp-area="Admin" asp-controller="Facilities" asp-action="Edit" asp-route-id="" class="btn btn-outline-secondary m-2">додати установу</a>
     </h2>
+
+    <div class="d-flex align-items-center gap-2">
+        <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text bg-white">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text"
+                   id="facilitySearch"
+                   class="form-control"
+                   placeholder="Пошук установи..." />
+        </div>
+        @if (User.IsInRole("admin"))
+        {
+            <a asp-area="Admin" asp-controller="Facilities" asp-action="Edit" asp-route-id=""
+               class="btn btn-outline-secondary btn-sm">
+                додати установу
+            </a>
+        }
+    </div>
 </div>
+
 <div>
     @if (Model.PageItems.Any())
     {
@@ -27,7 +45,7 @@
                     }
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="facilitiesTableBody">
                 @foreach (var item in Model.PageItems)
                 {
                     <tr class="@(item.Hidden ? "table-hidden" : "")">
@@ -132,5 +150,98 @@
                 formToSubmit.submit();
             }
         });
+
+        (function () {
+            const input = document.getElementById('facilitySearch');
+            const form = document.getElementById('facilitySearchForm');
+            if (!input || !form) return;
+
+            let timer = null;
+
+            input.addEventListener('input', function () {
+                clearTimeout(timer);
+                timer = setTimeout(function () {
+                    form.submit();
+                }, 400); // 400ms після паузи в наборі
+            });
+        })();
+
+                // ===== LIVE SEARCH =====
+        (function () {
+            const searchInput = document.getElementById('facilitySearch');
+            const tableBody = document.getElementById('facilitiesTableBody');
+            const isAdmin = @User.IsInRole("admin").ToString().ToLower(); // true/false
+
+            let typingTimer = null;
+
+            if (!searchInput || !tableBody) return;
+
+            searchInput.addEventListener('input', function () {
+                const term = this.value;
+
+                // невелика затримка, щоб не спамити сервер
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(function () {
+                    if (term.trim().length === 0) {
+                        // якщо поле очищене — просто перезавантажимо сторінку,
+                        // щоб повернути стандартну пагінацію
+                        window.location.href = '@Url.Action("Index", "Facilities", new { area = "Admin" })';
+                        return;
+                    }
+
+                    fetch('@Url.Action("Search", "Facilities", new { area = "Admin" })' + '?term=' + encodeURIComponent(term))
+                        .then(r => r.json())
+                        .then(data => {
+                            tableBody.innerHTML = '';
+
+                            if (!data || data.length === 0) {
+                                tableBody.innerHTML =
+                                    '<tr><td colspan="' + (isAdmin ? 6 : 5) + '" class="text-center text-muted">Нічого не знайдено</td></tr>';
+                                return;
+                            }
+
+                            data.forEach(function (f) {
+                                const tr = document.createElement('tr');
+                                if (f.hidden) {
+                                    tr.classList.add('table-hidden');
+                                }
+
+                                let actionsHtml = '';
+                                if (isAdmin) {
+                                    actionsHtml = `
+                                        <td>
+                                            <a href="@Url.Action("Edit", "Facilities", new { area = "Admin" })/${f.id}">
+                                                <i class="fa-regular fa-pen-to-square"></i>
+                                            </a>
+                                            <form style="display:inline-block;" id="form-${f.id}"
+                                                  action="@Url.Action("Delete", "Facilities", new { area = "Admin" })"
+                                                  method="post" class="d-inline">
+                                                <input type="hidden" name="id" value="${f.id}" />
+                                                <button type="button" class="btn btn-sm btn-danger"
+                                                        onclick="confirmDelete('${f.id}')">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>`;
+                                }
+
+                                tr.innerHTML = `
+                                    <th scope="row">${f.index}</th>
+                                    <td>${f.name ?? ''}</td>
+                                    <td>${f.description ?? ''}</td>
+                                    <td>${f.address ?? ''}</td>
+                                    <td>${f.phones ?? ''}</td>
+                                    ${actionsHtml}
+                                `;
+                                tableBody.appendChild(tr);
+                            });
+                        })
+                        .catch(err => {
+                            console.error('Facility search error:', err);
+                        });
+
+                }, 300); // 300 мс debounce
+            });
+        })();
     </script>
 }

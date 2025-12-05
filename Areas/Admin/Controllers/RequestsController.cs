@@ -87,6 +87,65 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return RedirectToAction("Index");
         }
+        [HttpGet]
+        public async Task<IActionResult> Search(string term, bool completed = false)
+        {
+            // базовий запит
+            var query = dataManager.Requests.GetRequests()
+                .Include(r => r.Category)
+                .Where(r => r.IsCompleted == completed)
+                .OrderBy(r => r.RequestNumber)
+                .AsQueryable();
+
+            // фільтр за роллю (як у Index)
+            if (!User.IsInRole("admin"))
+            {
+                var userId = _userManager.GetUserId(User);
+
+                var allowedCategoryIds = await dataManager.UserCategories.GetUserCategories()
+                    .Where(uc => uc.UserId == userId)
+                    .Select(uc => uc.CategoryId)
+                    .ToListAsync();
+
+                query = query.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+            }
+
+            if (!string.IsNullOrWhiteSpace(term))
+            {
+                term = term.Trim().ToLower();
+
+                query = query.Where(r =>
+                    (r.RequestNumber.ToString() ?? "").ToLower().Contains(term) ||
+                    (r.Name ?? "").ToLower().Contains(term) ||
+                    (r.Caller ?? "").ToLower().Contains(term) ||
+                    (r.Subcategory ?? "").ToLower().Contains(term) ||
+                    (r.Text ?? "").ToLower().Contains(term) ||
+                    ((r.Category != null ? r.Category.Title : "") ?? "").ToLower().Contains(term)
+                );
+            }
+
+            var list = await query
+                .Take(300) // обмеження, щоб не завалити браузер
+                .ToListAsync();
+
+            var result = list.Select((r, idx) => new
+            {
+                index = idx + 1,
+                id = r.Id,
+                requestNumber = r.RequestNumber,
+                name = r.Name,
+                caller = r.Caller,
+                category = r.Category?.Title,
+                subcategory = r.Subcategory,
+                text = r.Text,
+                nameAudio = r.NameAudioFilePath,
+                audio = r.AudioFilePath,
+                date = r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
+                isCompleted = r.IsCompleted
+            });
+
+            return Json(result);
+        }
         [HttpPost]
         public async Task<IActionResult> Delete(Guid id)
         {

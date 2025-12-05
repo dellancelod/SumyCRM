@@ -3,7 +3,7 @@
 @{
     int itemIndex = (Model.CurrentPage - 1) * Model.PageSize + 1;
 }
-<div class="d-flex">
+<div class="d-flex justify-content-between align-items-center mb-3">
     @if (!ViewBag.AreCompleted)
     {
         <h2>Активні</h2>
@@ -13,6 +13,17 @@
         <h2>Виконані</h2>
     }
 
+    <div class="d-flex align-items-center gap-2">
+        <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text bg-white">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text"
+                   id="requestSearch"
+                   class="form-control"
+                   placeholder="Пошук звернення..." />
+        </div>
+    </div>
 </div>
 <div>
     @if (Model.PageItems.Any())
@@ -34,7 +45,7 @@
                         <th scope="col"></th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="requestsTableBody">
                     @foreach (var item in Model.PageItems)
                     {
                         <tr>
@@ -194,5 +205,123 @@
                 formToSubmit.submit();
             }
         });
+
+        // ===== LIVE SEARCH FOR REQUESTS =====
+        (function () {
+            const searchInput = document.getElementById('requestSearch');   // ID інпута
+            const tableBody = document.getElementById('requestsTableBody'); // ID tbody
+
+            if (!searchInput || !tableBody) return;
+
+            const isAdmin = @User.IsInRole("admin").ToString().ToLower();        // true / false
+            const areCompleted = @((bool)ViewBag.AreCompleted ? "true" : "false"); // "true" / "false"
+
+            let typingTimer = null;
+
+            searchInput.addEventListener('input', function () {
+                const term = this.value;
+
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(function () {
+
+                    if (term.trim().length === 0) {
+                        // якщо поле очищене — повертаємося до звичайної пагінації
+                        window.location.href = '@Url.Action("Index", "Requests", new { area = "Admin", page = 1, completed = (bool)ViewBag.AreCompleted })';
+                        return;
+                    }
+
+                    const url = '@Url.Action("Search", "Requests", new { area = "Admin" })'
+                        + '?term=' + encodeURIComponent(term)
+                        + '&completed=' + areCompleted;
+
+                    fetch(url)
+                        .then(r => r.json())
+                        .then(data => {
+                            tableBody.innerHTML = '';
+
+                            if (!data || data.length === 0) {
+                                const colCount = isAdmin ? 11 : 10;
+                                tableBody.innerHTML =
+                                    `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
+                                return;
+                            }
+
+                            data.forEach(item => {
+                                const tr = document.createElement('tr');
+
+                                // аудіо
+                                let audioHtml = '';
+                                if (item.nameAudio) {
+                                    audioHtml += `
+                                        <label>
+                                            <span>
+                                                <audio controls src="${item.nameAudio}"></audio>
+                                            </span>
+                                        </label>`;
+                                }
+                                if (item.audio) {
+                                    audioHtml += `
+                                        <label>
+                                            <span>
+                                                <audio controls src="${item.audio}"></audio>
+                                            </span>
+                                        </label>`;
+                                }
+
+                                // дії (кнопки)
+                                let actionsHtml = '';
+                                if (item.isCompleted) {
+                                    if (isAdmin) {
+                                        actionsHtml = `
+                                            <form style="display:inline-block;" id="form-${item.id}"
+                                                  action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
+                                                  method="post" class="d-inline">
+                                                <input type="hidden" name="id" value="${item.id}" />
+                                                <button type="button" class="btn btn-sm btn-danger"
+                                                        onclick="confirmDelete('${item.id}')">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </form>`;
+                                    }
+                                } else {
+                                    actionsHtml = `
+                                        <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
+                                              method="post">
+                                            <input type="hidden" name="id" value="${item.id}" />
+                                            <button type="submit" class="btn btn-success">
+                                                <i class="fa-solid fa-square-check fa-lg"></i>
+                                            </button>
+                                        </form>`;
+                                }
+
+                                tr.innerHTML = `
+                                    <th scope="row">${item.index}</th>
+                                    <td><label><span>${item.requestNumber ?? ''}</span></label></td>
+                                    <td><label><span>${item.name ?? ''}</span></label></td>
+                                    <td><label><span>${item.caller ?? ''}</span></label></td>
+                                    <td><label><span>${item.category ?? ''}</span></label></td>
+                                    <td><label><span>${item.subcategory ?? ''}</span></label></td>
+                                    <td><label><span>${item.text ?? ''}</span></label></td>
+                                    <td>${audioHtml}</td>
+                                    <td><label><span>${item.date ?? ''}</span></label></td>
+                                    <td>
+                                        <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${item.id}">
+                                            <i class="fa-solid fa-eye fa-lg"></i>
+                                        </a>
+                                    </td>
+                                    <td>${actionsHtml}</td>
+                                `;
+
+                                tableBody.appendChild(tr);
+                            });
+                        })
+                        .catch(err => {
+                            console.error('Requests search error:', err);
+                        });
+
+                }, 300); // debounce 300 мс
+            });
+        })();
+
     </script>
 }

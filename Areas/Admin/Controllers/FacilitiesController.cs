@@ -19,24 +19,62 @@ namespace SumyCRM.Areas.Admin.Controllers
         {
             int pageSize = 7; // Items per page
 
-            var facilities = await dataManager.Facilities.GetFacilities()
-                .OrderBy(x => x.Hidden)
-                .ToListAsync();
+            var query = dataManager.Facilities.GetFacilities().AsQueryable();
+            
+            var total = await query.CountAsync();
 
-            var pageItems = facilities
+            var pageItems = await query
+                .OrderBy(f => f.Name)
                 .Skip((page - 1) * pageSize)
-                .Take(pageSize);
+                .Take(pageSize)
+                .ToListAsync();
 
 
             var model = new PaginationViewModel<Facility>
             {
                 PageItems = pageItems,
                 CurrentPage = page,
-                TotalPages = (int)Math.Ceiling(facilities.Count() / (double)pageSize),
+                TotalPages = (int)Math.Ceiling(total / (double)pageSize),
                 PageSize = pageSize
             };
 
             return View(model);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Search(string term)
+        {
+            var query = dataManager.Facilities.GetFacilities();
+
+            if (!string.IsNullOrWhiteSpace(term))
+            {
+                term = term.Trim().ToLower();
+
+                query = query.Where(f =>
+                    (f.Name ?? "").ToLower().Contains(term) ||
+                    (f.Description ?? "").ToLower().Contains(term) ||
+                    (f.Address ?? "").ToLower().Contains(term) ||
+                    (f.Phones ?? "").ToLower().Contains(term)
+                );
+            }
+
+            var list = await query
+                .OrderBy(f => f.Name)
+                .Take(200)        // щоб не завалити браузер
+                .ToListAsync();
+
+            var result = list.Select((f, idx) => new
+            {
+                index = idx + 1,
+                id = f.Id,
+                name = f.Name,
+                description = f.Description,
+                address = f.Address,
+                phones = f.Phones,
+                hidden = f.Hidden
+            });
+
+            return Json(result);
         }
 
         public async Task<IActionResult> Edit(Guid id)
