@@ -37,5 +37,19 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return View(model);
         }
+        [HttpPost]
+        public async Task<IActionResult> Delete(Guid id)
+        {
+            if (User.IsInRole("admin"))
+            {
+                var callRecording = await dataManager.CallRecordings.GetCallRecordingByIdAsync(id);
+
+                await dataManager.CallRecordings.DeleteCallRecordingAsync(callRecording);
+               
+            }
+            return RedirectToAction(nameof(RequestsController.Index),
+                nameof(RequestsController).Replace("Controller", string.Empty),
+                new { page = 1, completed = true });
+        }
     }
 }
