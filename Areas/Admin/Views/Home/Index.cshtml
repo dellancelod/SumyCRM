@@ -15,26 +15,26 @@
 <!-- KPI Картки -->
 <div class="row g-3 mb-4">
     <div class="col-12 col-md-4">
-        <div class="card shadow-sm border-0 dashboard-card dashboard-card-active">
+        <div class="card shadow-sm border-0 dashboard-card dashboard-card-completed">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
                     <div class="card-label">Активні звернення</div>
-                    <div class="card-value text-success" id="activeCount">@Model.ActiveCount</div>
+                    <div class="card-value text-danger" id="activeCount">@Model.ActiveCount</div>
                 </div>
-                <div class="card-icon bg-success-subtle">
+                <div class="card-icon bg-danger-subtle">
                     <i class="fa-solid fa-circle-play"></i>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-12 col-md-4">
-        <div class="card shadow-sm border-0 dashboard-card dashboard-card-completed">
+        <div class="card shadow-sm border-0 dashboard-card dashboard-card-active">
             <div class="card-body d-flex justify-content-between align-items-center">
                 <div>
                     <div class="card-label">Виконані звернення</div>
-                    <div class="card-value text-danger" id="completedCount">@Model.CompletedCount</div>
+                    <div class="card-value text-success" id="completedCount">@Model.CompletedCount</div>
                 </div>
-                <div class="card-icon bg-danger-subtle">
+                <div class="card-icon bg-success-subtle">
                     <i class="fa-solid fa-circle-check"></i>
                 </div>
             </div>
@@ -202,12 +202,12 @@
                     datasets: [{
                         data: [activeCount, completedCount],
                         backgroundColor: [
-                            'rgba(0, 200, 83, 0.7)',
-                            'rgba(244, 67, 54, 0.7)'
+                            'rgba(244, 67, 54, 0.7)',
+                            'rgba(0, 200, 83, 0.7)'
                         ],
                         borderColor: [
-                            'rgba(0, 200, 83, 1)',
-                            'rgba(244, 67, 54, 1)'
+                            'rgba(244, 67, 54, 1)',
+                            'rgba(0, 200, 83, 1)'
                         ],
                         borderWidth: 1
                     }]
