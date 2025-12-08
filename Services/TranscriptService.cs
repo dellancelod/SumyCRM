@@ -5,6 +5,7 @@
         private static readonly string[] NoisePhrases =
 {
             "дякую за перегляд",
+            "дякую за увагу",
             "дякуємо за перегляд",
             "спасибо за просмотр",
             "thank you for watching"
