@@ -7,6 +7,7 @@
     string dateFrom = ViewBag.DateFrom as string;
     string dateTo = ViewBag.DateTo as string;
     bool areCompleted = ViewBag.AreCompleted;
+    var currentPage = Model.CurrentPage;
 }
 <div class="d-flex justify-content-between align-items-center mb-3">
     @if (!ViewBag.AreCompleted)
@@ -289,126 +290,154 @@
             }
         });
 
-        // ===== LIVE SEARCH FOR REQUESTS =====
+        // ===== LIVE LOAD + AUTOREFRESH ДЛЯ ЗАЯВОК =====
         (function () {
-            const searchInput = document.getElementById('requestSearch');   // ID інпута
-            const tableBody = document.getElementById('requestsTableBody'); // ID tbody
+            const searchInput   = document.getElementById('requestSearch');
+            const tableBody     = document.getElementById('requestsTableBody');
+            const paginationNav = document.getElementById('paginationNav');
 
-            if (!searchInput || !tableBody) return;
+            if (!tableBody) return;
 
-            const isAdmin = @User.IsInRole("admin").ToString().ToLower();        // true / false
-            const areCompleted = @((bool)ViewBag.AreCompleted ? "true" : "false"); // "true" / "false"
+            const isAdmin = @User.IsInRole("admin").ToString().ToLower();   // "true"/"false"
+            const initialCompleted = @areCompleted.ToString().ToLower();     // "true"/"false"
+            const initialPage = @currentPage;                                // номер страницы
 
             let typingTimer = null;
 
-            searchInput.addEventListener('input', function () {
-                const term = this.value;
+            function buildUrl() {
+                // текущие значения фильтров и поиска
+                const term       = (searchInput?.value || '').trim();
+                const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
+                const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
+                const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
+                const page       = document.querySelector('input[name="page"]')?.value || initialPage;
+                const completed  = document.querySelector('input[name="completed"]')?.value
+                                  || initialCompleted;
 
-                clearTimeout(typingTimer);
-                typingTimer = setTimeout(function () {
+                let url = '@Url.Action("GetList", "Requests", new { area = "Admin" })';
 
-                    if (term.trim().length === 0) {
-                        // якщо поле очищене — повертаємося до звичайної пагінації
-                        paginationNav.style.display = 'block';
-                        window.location.reload(); 
-                        return;
+                url += '?completed=' + encodeURIComponent(completed);
+                url += '&page=' + encodeURIComponent(page);
+                url += '&categoryId=' + encodeURIComponent(categoryId);
+                url += '&dateFrom=' + encodeURIComponent(dateFrom);
+                url += '&dateTo=' + encodeURIComponent(dateTo);
+
+                if (term.length > 0) {
+                    url += '&term=' + encodeURIComponent(term);
+                }
+
+                return url;
+            }
+
+            function renderTable(data) {
+                tableBody.innerHTML = '';
+
+                if (!data || !data.items || data.items.length === 0) {
+                    const colCount = isAdmin === 'true' ? 11 : 10;
+                    tableBody.innerHTML =
+                        `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
+                    return;
+                }
+
+                data.items.forEach(item => {
+                    const tr = document.createElement('tr');
+
+                    let audioHtml = '';
+                    if (item.nameAudio) {
+                        audioHtml += `
+                            <label>
+                                <span>
+                                    <audio controls src="${item.nameAudio}"></audio>
+                                </span>
+                            </label>`;
+                    }
+                    if (item.audio) {
+                        audioHtml += `
+                            <label>
+                                <span>
+                                    <audio controls src="${item.audio}"></audio>
+                                </span>
+                            </label>`;
                     }
 
-                    // hide pagination while searching
-                    paginationNav.style.display = 'none';
+                    let actionsHtml = '';
+                    if (item.isCompleted) {
+                        if (isAdmin === 'true') {
+                            actionsHtml = `
+                                <form style="display:inline-block;" id="form-${item.id}"
+                                      action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
+                                      method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="${item.id}" />
+                                    <button type="button" class="btn btn-sm btn-danger"
+                                            onclick="confirmDelete('${item.id}')">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </form>`;
+                        }
+                    } else {
+                        actionsHtml = `
+                            <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
+                                  method="post">
+                                <input type="hidden" name="id" value="${item.id}" />
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fa-solid fa-square-check fa-lg"></i>
+                                </button>
+                            </form>`;
+                    }
 
-                    const url = '@Url.Action("Search", "Requests", new { area = "Admin" })'
-                        + '?term=' + encodeURIComponent(term)
-                        + '&completed=' + areCompleted;
+                    tr.innerHTML = `
+                        <th scope="row">${item.index}</th>
+                        <td><label><span>${item.requestNumber ?? ''}</span></label></td>
+                        <td><label><span>${item.name ?? ''}</span></label></td>
+                        <td><label><span>${item.caller ?? ''}</span></label></td>
+                        <td><label><span>${item.category ?? ''}</span></label></td>
+                        <td><label><span>${item.subcategory ?? ''}</span></label></td>
+                        <td><label><span>${item.text ?? ''}</span></label></td>
+                        <td>${audioHtml}</td>
+                        <td><label><span>${item.date ?? ''}</span></label></td>
+                        <td>
+                            <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${item.id}">
+                                <i class="fa-solid fa-eye fa-lg"></i>
+                            </a>
+                        </td>
+                        <td>${actionsHtml}</td>
+                    `;
 
-                    fetch(url)
-                        .then(r => r.json())
-                        .then(data => {
-                            tableBody.innerHTML = '';
+                    tableBody.appendChild(tr);
+                });
+            }
 
-                            if (!data || data.length === 0) {
-                                const colCount = isAdmin ? 11 : 10;
-                                tableBody.innerHTML =
-                                    `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
-                                return;
-                            }
+            function loadRequests() {
+                const url = buildUrl();
 
-                            data.forEach(item => {
-                                const tr = document.createElement('tr');
+                // если строка пустая — можно снова показывать пагинацию
+                const term = (searchInput?.value || '').trim();
+                if (paginationNav) {
+                    paginationNav.style.display = term.length === 0 ? 'block' : 'none';
+                }
 
-                                // аудіо
-                                let audioHtml = '';
-                                if (item.nameAudio) {
-                                    audioHtml += `
-                                        <label>
-                                            <span>
-                                                <audio controls src="${item.nameAudio}"></audio>
-                                            </span>
-                                        </label>`;
-                                }
-                                if (item.audio) {
-                                    audioHtml += `
-                                        <label>
-                                            <span>
-                                                <audio controls src="${item.audio}"></audio>
-                                            </span>
-                                        </label>`;
-                                }
+                fetch(url)
+                    .then(r => r.json())
+                    .then(data => {
+                        renderTable(data);
+                        // при желании здесь можно ещё обновить цифры страниц в пагинации
+                    })
+                    .catch(err => console.error('Requests autoload error:', err));
+            }
 
-                                // дії (кнопки)
-                                let actionsHtml = '';
-                                if (item.isCompleted) {
-                                    if (isAdmin) {
-                                        actionsHtml = `
-                                            <form style="display:inline-block;" id="form-${item.id}"
-                                                  action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
-                                                  method="post" class="d-inline">
-                                                <input type="hidden" name="id" value="${item.id}" />
-                                                <button type="button" class="btn btn-sm btn-danger"
-                                                        onclick="confirmDelete('${item.id}')">
-                                                    <i class="fa fa-trash"></i>
-                                                </button>
-                                            </form>`;
-                                    }
-                                } else {
-                                    actionsHtml = `
-                                        <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
-                                              method="post">
-                                            <input type="hidden" name="id" value="${item.id}" />
-                                            <button type="submit" class="btn btn-success">
-                                                <i class="fa-solid fa-square-check fa-lg"></i>
-                                            </button>
-                                        </form>`;
-                                }
+            // live search
+            if (searchInput) {
+                searchInput.addEventListener('input', function () {
+                    clearTimeout(typingTimer);
+                    typingTimer = setTimeout(loadRequests, 300);
+                });
+            }
 
-                                tr.innerHTML = `
-                                    <th scope="row">${item.index}</th>
-                                    <td><label><span>${item.requestNumber ?? ''}</span></label></td>
-                                    <td><label><span>${item.name ?? ''}</span></label></td>
-                                    <td><label><span>${item.caller ?? ''}</span></label></td>
-                                    <td><label><span>${item.category ?? ''}</span></label></td>
-                                    <td><label><span>${item.subcategory ?? ''}</span></label></td>
-                                    <td><label><span>${item.text ?? ''}</span></label></td>
-                                    <td>${audioHtml}</td>
-                                    <td><label><span>${item.date ?? ''}</span></label></td>
-                                    <td>
-                                        <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${item.id}">
-                                            <i class="fa-solid fa-eye fa-lg"></i>
-                                        </a>
-                                    </td>
-                                    <td>${actionsHtml}</td>
-                                `;
+            // AUTOREFRESH каждые 15 секунд (можешь изменить на 5, 10 и т.д.)
+            setInterval(loadRequests, 15000);
 
-                                tableBody.appendChild(tr);
-                            });
-                        })
-                        .catch(err => {
-                            console.error('Requests search error:', err);
-                        });
-
-                }, 300); // debounce 300 мс
-            });
+            // при желании можно один раз дернуть на старте:
+            // loadRequests();
         })();
-
     </script>
 }

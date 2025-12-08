@@ -224,5 +224,89 @@ namespace SumyCRM.Areas.Admin.Controllers
                 totalQuantity = query.Count()
             });
         }
+        [HttpGet]
+        public async Task<IActionResult> GetList(
+            string? term,
+            bool completed,
+            Guid? categoryId,
+            string? dateFrom,
+            string? dateTo,
+            int page = 1,
+            int pageSize = 8)
+        {
+            var query = dataManager.Requests.GetRequests()
+                .Include(r => r.Category)
+                .AsQueryable();
+
+            // completed / active
+            query = query.Where(r => r.IsCompleted == completed);
+
+            // фильтр по категории
+            if (categoryId.HasValue)
+            {
+                query = query.Where(r => r.CategoryId == categoryId.Value);
+            }
+
+            // фильтр по датам
+            if (!string.IsNullOrWhiteSpace(dateFrom) &&
+                DateTime.TryParse(dateFrom, out var df))
+            {
+                query = query.Where(r => r.DateAdded >= df);
+            }
+
+            if (!string.IsNullOrWhiteSpace(dateTo) &&
+                DateTime.TryParse(dateTo, out var dt))
+            {
+                // до конца дня
+                dt = dt.Date.AddDays(1).AddTicks(-1);
+                query = query.Where(r => r.DateAdded <= dt);
+            }
+
+            // поиск по строке
+            if (!string.IsNullOrWhiteSpace(term))
+            {
+                term = term.Trim().ToLower();
+                query = query.Where(r =>
+                    (r.Name ?? "").ToLower().Contains(term) ||
+                    (r.Caller ?? "").ToLower().Contains(term) ||
+                    (r.Subcategory ?? "").ToLower().Contains(term) ||
+                    (r.Text ?? "").ToLower().Contains(term) ||
+                    (r.Category.Title ?? "").ToLower().Contains(term)
+                );
+            }
+
+            var total = await query.CountAsync();
+
+            var list = await query
+                .OrderByDescending(r => r.DateAdded)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var items = list.Select((r, idx) => new
+            {
+                index = (page - 1) * pageSize + idx + 1,
+                id = r.Id,
+                requestNumber = r.RequestNumber,
+                name = r.Name,
+                caller = r.Caller,
+                category = r.Category?.Title,
+                subcategory = r.Subcategory,
+                text = r.Text,
+                audio = r.AudioFilePath,
+                nameAudio = r.NameAudioFilePath,
+                date = r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
+                isCompleted = r.IsCompleted
+            });
+
+            return Json(new
+            {
+                items,
+                total,
+                page,
+                totalPages = (int)Math.Ceiling(total / (double)pageSize)
+            });
+        }
+
     }
 }
