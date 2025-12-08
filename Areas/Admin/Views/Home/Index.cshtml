@@ -142,8 +142,8 @@
                 document.getElementById('lastUpdated').textContent = formatTime(new Date());
 
                 // Обновляем KPI-карточки
-                const activeEl = document.querySelector('.dashboard-card-active .card-value');
-                const completedEl = document.querySelector('.dashboard-card-completed .card-value');
+                const activeEl = document.querySelector('.dashboard-card-completed .card-value');
+                const completedEl = document.querySelector('.dashboard-card-active .card-value');
                 const totalEl = document.querySelector('.dashboard-card-total .card-value');
 
                 if (activeEl) activeEl.textContent = data.activeCount;
