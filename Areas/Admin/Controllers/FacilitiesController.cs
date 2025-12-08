@@ -60,7 +60,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             var list = await query
                 .OrderBy(f => f.Name)
-                .Take(200)        // щоб не завалити браузер
+                .Take(200)
                 .ToListAsync();
 
             var result = list.Select((f, idx) => new
@@ -76,7 +76,6 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return Json(result);
         }
-
         public async Task<IActionResult> Edit(Guid id)
         {
             var entity = id == default ? new Facility() : await dataManager.Facilities.GetFacilityByIdAsync(id);

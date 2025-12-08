@@ -151,32 +151,15 @@
             }
         });
 
+        // ===== LIVE SEARCH ДЛЯ УСТАНОВ =====
         (function () {
-            const input = document.getElementById('facilitySearch');
-            const form = document.getElementById('facilitySearchForm');
-            if (!input || !form) return;
-
-            let timer = null;
-
-            input.addEventListener('input', function () {
-                clearTimeout(timer);
-                timer = setTimeout(function () {
-                    form.submit();
-                }, 400); // 400ms після паузи в наборі
-            });
-        })();
-
-        // ===== LIVE SEARCH FOR REQUESTS =====
-        (function () {
-            const searchInput = document.getElementById('requestSearch');
-            const tableBody = document.getElementById('requestsTableBody');
+            const searchInput = document.getElementById('facilitySearch');
+            const tableBody = document.getElementById('facilitiesTableBody');
             const paginationNav = document.getElementById('paginationNav');
 
             if (!searchInput || !tableBody) return;
 
             const isAdmin = @User.IsInRole("admin").ToString().ToLower();
-            const areCompleted = @((bool)ViewBag.AreCompleted ? "true" : "false");
-
             let typingTimer = null;
 
             searchInput.addEventListener('input', function () {
@@ -185,19 +168,19 @@
                 clearTimeout(typingTimer);
                 typingTimer = setTimeout(function () {
 
+                    // якщо строка порожня — повертаємось до звичайного режиму з пагінацією
                     if (term.trim().length === 0) {
-                        // show pagination again
-                        paginationNav.style.display = 'block';
-                        window.location.reload();
+                        if (paginationNav) paginationNav.style.display = 'block';
+                        // Можна або перезавантажити:
+                        window.location.href = '@Url.Action("Index", "Facilities", new { area = "Admin" })';
                         return;
                     }
 
-                    // hide pagination while searching
-                    paginationNav.style.display = 'none';
+                    // ховаємо пагінацію під час пошуку
+                    if (paginationNav) paginationNav.style.display = 'none';
 
-                    const url = '@Url.Action("Search", "Requests", new { area = "Admin" })'
-                        + '?term=' + encodeURIComponent(term)
-                        + '&completed=' + areCompleted;
+                    const url = '@Url.Action("Search", "Facilities", new { area = "Admin" })'
+                        + '?term=' + encodeURIComponent(term);
 
                     fetch(url)
                         .then(r => r.json())
@@ -205,7 +188,7 @@
                             tableBody.innerHTML = '';
 
                             if (!data || data.length === 0) {
-                                const colCount = isAdmin ? 11 : 10;
+                                const colCount = isAdmin === 'true' ? 6 : 5;
                                 tableBody.innerHTML =
                                     `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
                                 return;
@@ -213,66 +196,42 @@
 
                             data.forEach(item => {
                                 const tr = document.createElement('tr');
-
-                                let audioHtml = '';
-                                if (item.nameAudio) {
-                                    audioHtml += `
-                                        <label><span><audio controls src="${item.nameAudio}"></audio></span></label>`;
-                                }
-                                if (item.audio) {
-                                    audioHtml += `
-                                        <label><span><audio controls src="${item.audio}"></audio></span></label>`;
+                                if (item.hidden) {
+                                    tr.classList.add('table-hidden');
                                 }
 
                                 let actionsHtml = '';
-                                if (item.isCompleted) {
-                                    if (isAdmin) {
-                                        actionsHtml = `
-                                            <form style="display:inline-block;" id="form-${item.id}"
-                                                  action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
-                                                  method="post" class="d-inline">
-                                                <input type="hidden" name="id" value="${item.id}" />
-                                                <button type="button" class="btn btn-sm btn-danger"
-                                                        onclick="confirmDelete('${item.id}')">
-                                                    <i class="fa fa-trash"></i>
-                                                </button>
-                                            </form>`;
-                                    }
-                                } else {
+                                if (isAdmin === 'true') {
                                     actionsHtml = `
-                                        <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
-                                              method="post">
+                                        <a href="@Url.Action("Edit", "Facilities", new { area = "Admin" })/${item.id}">
+                                            <i class="fa-regular fa-pen-to-square"></i>
+                                        </a>
+                                        <form style="display: inline-block;" id="form-${item.id}"
+                                              action="@Url.Action("Delete", "Facilities", new { area = "Admin" })"
+                                              method="post" class="d-inline">
                                             <input type="hidden" name="id" value="${item.id}" />
-                                            <button type="submit" class="btn btn-success">
-                                                <i class="fa-solid fa-square-check fa-lg"></i>
+                                            <button type="button" class="btn btn-sm btn-danger"
+                                                    onclick="confirmDelete('${item.id}')">
+                                                <i class="fa fa-trash"></i>
                                             </button>
                                         </form>`;
                                 }
 
                                 tr.innerHTML = `
                                     <th scope="row">${item.index}</th>
-                                    <td>${item.requestNumber ?? ''}</td>
                                     <td>${item.name ?? ''}</td>
-                                    <td>${item.caller ?? ''}</td>
-                                    <td>${item.category ?? ''}</td>
-                                    <td>${item.subcategory ?? ''}</td>
-                                    <td>${item.text ?? ''}</td>
-                                    <td>${audioHtml}</td>
-                                    <td>${item.date ?? ''}</td>
-                                    <td>
-                                        <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${item.id}">
-                                            <i class="fa-solid fa-eye fa-lg"></i>
-                                        </a>
-                                    </td>
-                                    <td>${actionsHtml}</td>
+                                    <td>${item.description ?? ''}</td>
+                                    <td>${item.address ?? ''}</td>
+                                    <td>${item.phones ?? ''}</td>
+                                    ${isAdmin === 'true' ? `<td>${actionsHtml}</td>` : ''}
                                 `;
 
                                 tableBody.appendChild(tr);
                             });
                         })
-                        .catch(err => console.error('Requests search error:', err));
+                        .catch(err => console.error('Facilities search error:', err));
 
-                }, 300);
+                }, 400); // debounce 400ms
             });
         })();
     </script>
