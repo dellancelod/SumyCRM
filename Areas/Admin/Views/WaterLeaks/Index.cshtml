@@ -1,0 +1,328 @@
+﻿@{
+    ViewData["Title"] = "Water Leak Map";
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<div class="row g-3">
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form id="leakForm" class="card-body">
+                    <h5 class="mb-3">Додати протік</h5>
+
+                    <div class="mb-2">
+                        <label class="form-label">Адреса</label>
+                        <input id="addr" class="form-control"
+                               placeholder="наприклад Харківська 10 або Харківська" />
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label">Нотатки (опціонально)</label>
+                        <textarea id="notes" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <button id="btnAdd" type="submit" class="btn btn-primary w-100">
+                        Додати на мапу
+                    </button>
+
+                    <div id="msg" class="small mt-2 text-muted"></div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Протіки</h5>
+                    <button id="btnDeleteAll" class="btn btn-sm btn-outline-danger">
+                        Видалити всі
+                    </button>
+                </div>
+
+                <div id="leaksEmpty" class="text-muted small d-none">Немає протікань</div>
+                <div id="leaksList" class="list-group"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div id="map" style="height: 70vh; min-height: 420px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    const msg = (t, isErr=false) => {
+        const el = document.getElementById("msg");
+        el.textContent = t;
+        el.className = "small mt-2 " + (isErr ? "text-danger" : "text-muted");
+    };
+
+    const pointsUrl = '@Url.Action("Points", "WaterLeaks", new { area = "Admin" })';
+    const createUrl = '@Url.Action("Create", "WaterLeaks", new { area = "Admin" })';
+    const deleteUrl = '@Url.Action("Delete", "WaterLeaks", new { area = "Admin" })';
+
+    const map = L.map('map').setView([50.9077, 34.7981], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // id -> Leaflet layer (circleMarker or polyline)
+    const layersById = new Map();
+
+    const leaksListEl = document.getElementById("leaksList");
+    const leaksEmptyEl = document.getElementById("leaksEmpty");
+
+    function escapeHtml(s) {
+        return (s ?? "").replace(/[&<>"']/g, c => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[c]));
+    }
+
+    function removeLayer(id) {
+        const layer = layersById.get(id);
+        if (layer) {
+            map.removeLayer(layer);
+            layersById.delete(id);
+        }
+    }
+
+    function makePopupHtml(p) {
+        const type = p.street ? "<span class='badge text-bg-danger'>Street</span>" : "<span class='badge text-bg-danger'>Point</span>";
+        return `${type}<br/><b>Протік</b><br/>${escapeHtml(p.address)}${p.notes ? "<br/>" + escapeHtml(p.notes) : ""}`;
+    }
+
+    function drawPoint(p) {
+        // red dot
+        const layer = L.circleMarker([p.lat, p.lon], {
+            radius: 7,
+            color: "red",
+            weight: 2,
+            fillColor: "red",
+            fillOpacity: 1
+        }).addTo(map);
+
+        layer.bindPopup(makePopupHtml(p));
+        return layer;
+    }
+
+    function drawStreet(p) {
+        let multi = [];
+        try { multi = JSON.parse(p.geometryJson || "[]"); } catch { multi = []; }
+
+        const latlngs = multi.map(line => line.map(x => [x[0], x[1]]));
+
+        const layer = L.polyline(latlngs, {
+            color: "red",
+            weight: 6,
+            opacity: 0.95,
+            lineJoin: "round",
+            lineCap: "round",
+            smoothFactor: 1
+        }).addTo(map);
+
+        layer.bindPopup(makePopupHtml(p));
+        return layer;
+    }
+
+    function focusLayer(p) {
+        const layer = layersById.get(p.id);
+        if (!layer) {
+            map.setView([p.lat, p.lon], 16);
+            return;
+        }
+
+        if (layer.getBounds) {
+            map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+        } else if (layer.getLatLng) {
+            map.setView(layer.getLatLng(), 16);
+        }
+
+        if (layer.openPopup) layer.openPopup();
+    }
+
+    function renderLeaksList(points) {
+        leaksListEl.innerHTML = "";
+
+        if (!points || points.length === 0) {
+            leaksEmptyEl.classList.remove("d-none");
+            return;
+        }
+        leaksEmptyEl.classList.add("d-none");
+
+        points.forEach(p => {
+            const item = document.createElement("div");
+            item.className = "list-group-item d-flex justify-content-between align-items-start gap-2";
+
+            const left = document.createElement("div");
+            left.className = "flex-grow-1";
+            left.style.cursor = "pointer";
+
+            const title = document.createElement("div");
+            title.className = "fw-semibold";
+            title.innerHTML = escapeHtml(p.address);
+
+            const meta = document.createElement("div");
+            meta.className = "small text-muted";
+            meta.innerHTML =
+                (p.street ? "Street" : "Point") +
+                (p.notes ? (" · " + escapeHtml(p.notes)) : "");
+
+            left.appendChild(title);
+            left.appendChild(meta);
+
+            left.addEventListener("click", () => focusLayer(p));
+
+            const btnDel = document.createElement("button");
+            btnDel.className = "btn btn-sm btn-outline-danger";
+            btnDel.textContent = "Видалити";
+            btnDel.addEventListener("click", async (e) => {
+                e.stopPropagation();
+                if (!confirm("Видалити цей протік?")) return;
+
+                btnDel.disabled = true;
+
+                const res = await fetch(deleteUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: p.id })
+                });
+
+                const text = await res.text();
+                let data = {};
+                try { data = JSON.parse(text); } catch { data = { error: text }; }
+
+                if (!res.ok) {
+                    btnDel.disabled = false;
+                    msg(data.error || "Помилка видалення", true);
+                    return;
+                }
+
+                removeLayer(p.id);
+                item.remove();
+
+                if (leaksListEl.children.length === 0) leaksEmptyEl.classList.remove("d-none");
+
+                msg("Видалено!");
+            });
+
+            item.appendChild(left);
+            item.appendChild(btnDel);
+            leaksListEl.appendChild(item);
+        });
+    }
+
+    async function loadPoints() {
+        const res = await fetch(pointsUrl);
+        const points = await res.json();
+
+        points.forEach(p => {
+            if (layersById.has(p.id)) return;
+
+            let layer;
+            if (p.street === true && p.geometryJson) {
+                layer = drawStreet(p);
+            } else {
+                layer = drawPoint(p);
+            }
+
+            layersById.set(p.id, layer);
+        });
+
+        renderLeaksList(points);
+    }
+
+    const deleteAllUrl = '@Url.Action("DeleteAll", "WaterLeaks", new { area = "Admin" })';
+
+        document.getElementById("btnDeleteAll").addEventListener("click", async () => {
+        if (!confirm("Ви впевнені, що хочете видалити ВСІ протіки?")) return;
+
+        msg("Видалення всіх протікань...");
+
+        const res = await fetch(deleteAllUrl, {
+            method: "POST"
+        });
+
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch { data = { error: text }; }
+
+        if (!res.ok) {
+            msg(data.error || "Помилка видалення", true);
+            return;
+        }
+
+        // 🧹 очистить карту
+        for (const layer of layersById.values()) {
+            map.removeLayer(layer);
+        }
+        layersById.clear();
+
+        // 🧹 очистить список
+        leaksListEl.innerHTML = "";
+        leaksEmptyEl.classList.remove("d-none");
+
+        msg(`Видалено: ${data.deleted ?? "всі"} протіки`);
+    });
+
+    document.getElementById("leakForm").addEventListener("submit", async (e) => {
+        e.preventDefault(); // 🚫 stop page reload
+
+        const address = document.getElementById("addr").value.trim();
+        const notes = document.getElementById("notes").value.trim();
+
+        if (!address) {
+            msg("Введіть адресу", true);
+            return;
+        }
+
+        msg("Малюємо геометрію вулиці...");
+
+        const res = await fetch(createUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ address, notes: notes || null })
+        });
+
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch { data = { error: text }; }
+
+        if (!res.ok) {
+            msg(data.error || "Error", true);
+            console.error("Додавання не вдалося:", data);
+            return;
+        }
+
+        if (data.street === true && data.geometryJson) {
+            if (!layersById.has(data.id)) {
+                const layer = drawStreet(data);
+                layersById.set(data.id, layer);
+                map.fitBounds(layer.getBounds(), { padding: [20, 20] });
+                layer.openPopup?.();
+            }
+        } else {
+            if (!layersById.has(data.id)) {
+                const layer = drawPoint(data);
+                layersById.set(data.id, layer);
+                map.setView([data.lat, data.lon], 16);
+                layer.openPopup?.();
+            }
+        }
+
+        msg("Додано!");
+        e.target.reset(); // ✅ clears inputs
+
+        await loadPoints();
+    });
+
+    loadPoints();
+</script>

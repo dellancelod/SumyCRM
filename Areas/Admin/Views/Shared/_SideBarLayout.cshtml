@@ -51,11 +51,20 @@
             </a>
         </li>
         <li>
-            <a asp-area="Admin" asp-controller="Transport" asp-action="Index">
+            <a href="#mapsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                 <i class="fa-regular fa-map"></i>
-                Мапа транспорту
+                Мапи
             </a>
+            <ul class="collapse list-unstyled" id="mapsSubmenu">
+                <li>
+                    <a asp-area="Admin" asp-controller="Transport" asp-action="Index">Мапа транспорту</a>
+                </li>
+                <li>
+                    <a asp-area="Admin" asp-controller="WaterLeaks" asp-action="Index">Мапа протіків</a>
+                </li>
+            </ul>
         </li>
+
         <li>
             <a asp-area="" asp-controller="Home" asp-action="Index">
                 <i class="fa-solid fa-right-to-bracket"></i>

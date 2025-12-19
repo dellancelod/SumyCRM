@@ -16,7 +16,9 @@ builder.Services.AddTransient<ISchedulesRepository, EFSchedulesRepository>();
 builder.Services.AddTransient<IFacilitiesRepository, EFFacilitiesRepository>();
 builder.Services.AddTransient<IUserCategories, EFUserCategories>();
 builder.Services.AddTransient<ICallRecordingsRepository, EFCallRecordingsRepository>();
+builder.Services.AddTransient<IWaterLeakReports, EFWaterLeakReportsRepository>();
 builder.Services.AddHttpClient<IScheduleAudioService, ScheduleAudioService>();
+builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseMySql(
