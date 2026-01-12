@@ -8,7 +8,7 @@
 
         public string? Notes { get; set; }
         public string Status { get; set; } = "New"; // New/InProgress/Done
-        public bool Street { get; set; } // "point" or "street"
+        public bool Street { get; set; } 
 
         // for street we store polyline coordinates (lat/lon pairs) as JSON
         public string? GeometryJson { get; set; }

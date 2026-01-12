@@ -35,7 +35,7 @@ namespace SumyCRM.Services
         {
             if (string.IsNullOrWhiteSpace(address)) return null;
 
-            address = NormalizeAddress(address); // 👈 ADD THIS LINE
+            address = NormalizeAddress(address);
 
             if (_http.DefaultRequestHeaders.UserAgent.Count == 0)
                 _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SumyCRM", "1.0"));
@@ -43,7 +43,7 @@ namespace SumyCRM.Services
             var url =
                 "https://nominatim.openstreetmap.org/search" +
                 "?format=jsonv2&limit=1&addressdetails=0" +
-                "&countrycodes=ua" +                   // 👈 optional but recommended
+                "&countrycodes=ua" +                  
                 "&q=" + Uri.EscapeDataString(address);
 
             using var resp = await _http.GetAsync(url, ct);

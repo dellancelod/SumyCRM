@@ -97,7 +97,7 @@
 
     function makePopupHtml(p) {
         const type = p.street ? "<span class='badge text-bg-danger'>Street</span>" : "<span class='badge text-bg-danger'>Point</span>";
-        return `${type}<br/><b>Протік</b><br/>${escapeHtml(p.address)}${p.notes ? "<br/>" + escapeHtml(p.notes) : ""}`;
+        return `${type}<br/><b>Відключення</b><br/>${escapeHtml(p.address)}${p.notes ? "<br/>" + escapeHtml(p.notes) : ""}`;
     }
 
     function drawPoint(p) {
@@ -112,6 +112,18 @@
 
         layer.bindPopup(makePopupHtml(p));
         return layer;
+    }
+
+    function getFriendlyError(res, data) {
+        if (res.status === 504) {
+            return "Помилка, спробуйте ще раз";
+        }
+
+        if (res.status === 408) {
+            return "Сервер не відповідає, спробуйте пізніше";
+        }
+
+        return data?.error || "Сталася помилка";
     }
 
     function drawStreet(p) {
@@ -186,7 +198,7 @@
             btnDel.textContent = "Видалити";
             btnDel.addEventListener("click", async (e) => {
                 e.stopPropagation();
-                if (!confirm("Видалити цей протік?")) return;
+                if (!confirm("Видалити це відключення?")) return;
 
                 btnDel.disabled = true;
 
@@ -243,9 +255,9 @@
     const deleteAllUrl = '@Url.Action("DeleteAll", "WaterLeaks", new { area = "Admin" })';
 
         document.getElementById("btnDeleteAll").addEventListener("click", async () => {
-        if (!confirm("Ви впевнені, що хочете видалити ВСІ протіки?")) return;
+        if (!confirm("Ви впевнені, що хочете видалити ВСІ відключення?")) return;
 
-        msg("Видалення всіх протікань...");
+        msg("Видалення всіх відключень...");
 
         const res = await fetch(deleteAllUrl, {
             method: "POST"
@@ -270,7 +282,7 @@
         leaksListEl.innerHTML = "";
         leaksEmptyEl.classList.remove("d-none");
 
-        msg(`Видалено: ${data.deleted ?? "всі"} протіки`);
+        msg(`Видалено: ${data.deleted ?? "всі"} відключень`);
     });
 
     document.getElementById("leakForm").addEventListener("submit", async (e) => {
@@ -297,7 +309,7 @@
         try { data = JSON.parse(text); } catch { data = { error: text }; }
 
         if (!res.ok) {
-            msg(data.error || "Error", true);
+            msg(getFriendlyError(res, data), true);
             console.error("Додавання не вдалося:", data);
             return;
         }
