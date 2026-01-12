@@ -114,7 +114,6 @@
         return layer;
     }
 
-
     function drawStreet(p) {
         let multi = [];
         try { multi = JSON.parse(p.geometryJson || "[]"); } catch { multi = []; }
@@ -287,27 +286,18 @@
 
         msg("Малюємо геометрію вулиці...");
 
-        let res, text, data;
+        const res = await fetch(createUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ address, notes: notes || null })
+        });
 
-        try {
-            const res = await fetch(createUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ address, notes: notes || null })
-            });
+        const text = await res.text();
+        let data = {};
+        try { data = JSON.parse(text); } catch { data = { error: text }; }
 
-            const text = await res.text();
-            let data = {};
-            try { data = JSON.parse(text); } catch { data = { error: text }; }
-        }
-        catch (err) {
-            msg("Помилка, спробуйте ще раз", true);
-            console.error(err);
-            return;
-        }
         if (!res.ok) {
-            msg(data.error || "Error", true);
-            console.error("Додавання не вдалося:", data);
+            msg("Додавання не вдалося. Спробуйте ще раз", true);
             return;
         }
 
