@@ -114,17 +114,6 @@
         return layer;
     }
 
-    function getFriendlyError(res, data) {
-        if (res.status === 504) {
-            return "Помилка, спробуйте ще раз";
-        }
-
-        if (res.status === 408) {
-            return "Сервер не відповідає, спробуйте пізніше";
-        }
-
-        return data?.error || "Сталася помилка";
-    }
 
     function drawStreet(p) {
         let multi = [];
@@ -298,18 +287,24 @@
 
         msg("Малюємо геометрію вулиці...");
 
-        const res = await fetch(createUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ address, notes: notes || null })
-        });
+        try {
+            const res = await fetch(createUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ address, notes: notes || null })
+            });
 
-        const text = await res.text();
-        let data = {};
-        try { data = JSON.parse(text); } catch { data = { error: text }; }
-
+            const text = await res.text();
+            let data = {};
+            try { data = JSON.parse(text); } catch { data = { error: text }; }
+        }
+        catch (err) {
+            msg("Помилка, спробуйте ще раз", true);
+            console.error(err);
+            return;
+        }
         if (!res.ok) {
-            msg(getFriendlyError(res, data), true);
+            msg(data.error || "Error", true);
             console.error("Додавання не вдалося:", data);
             return;
         }
