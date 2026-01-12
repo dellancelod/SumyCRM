@@ -8,8 +8,7 @@ namespace SumyCRM.Services
         Task<(double lat, double lon)?> GeocodeAsync(string address, CancellationToken ct = default);
     }
 
-    
-
+   
     public class NominatimGeocodingService : IGeocodingService
     {
         private readonly HttpClient _http;
