@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using SumyCRM.Data;
 using SumyCRM.Models;
 using SumyCRM.Services;
@@ -12,13 +13,16 @@ namespace SumyCRM.Areas.Admin.Controllers
     {
         private readonly DataManager _dataManager;
         private readonly IGeocodingService _geo;
+        private readonly IMemoryCache _cache;
+        private readonly IHttpClientFactory _httpFactory;
 
-        public WaterLeaksController(DataManager dataManager, IGeocodingService geo)
+        public WaterLeaksController(DataManager dataManager, IGeocodingService geo, IMemoryCache cache, IHttpClientFactory httpFactory)
         {
             _dataManager = dataManager;
             _geo = geo;
+            _cache = cache;
+            _httpFactory = httpFactory;
         }
-
         // Page with form + map
         public IActionResult Index() => View();
 
@@ -60,42 +64,117 @@ namespace SumyCRM.Areas.Admin.Controllers
             return s;
         }
 
+        private static readonly string[] OverpassEndpoints = new[]
+{
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.nchc.org.tw/api/interpreter"
+};
+
         private async Task<List<List<(double lat, double lon)>>> GetStreetPolylinesAsync(string streetInput, CancellationToken ct)
         {
             var street = NormalizeStreetName(streetInput);
             if (string.IsNullOrWhiteSpace(street)) return new();
 
-            var city = await _geo.GeocodeAsync("Суми, Україна", ct);
+            var cacheKey = $"overpass:sumy:streetpoly:{street.ToLowerInvariant()}";
+            if (_cache.TryGetValue(cacheKey, out List<List<(double lat, double lon)>>? cached) && cached != null && cached.Count > 0)
+                return cached;
+
+            // city center cached (ok)
+            var city = await _cache.GetOrCreateAsync("geo:city:sumy", async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(30);
+                entry.SlidingExpiration = TimeSpan.FromDays(7);
+                return await _geo.GeocodeAsync("Суми, Україна", ct);
+            });
             if (city == null) return new();
 
             var lat0 = city.Value.lat;
             var lon0 = city.Value.lon;
+            var radius = 3500;
 
-            var overpassUrl = "https://overpass-api.de/api/interpreter";
-            var radius = 7000; // <-- increase a bit for full city coverage
             var streetRegex = EscapeOverpassRegex(street);
 
-            // Search in multiple tags: name / name:uk / name:ru
-            var q = $@"
-                [out:json][timeout:40];
-                (
-                  way(around:{radius},{lat0.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lon0.ToString(System.Globalization.CultureInfo.InvariantCulture)})
-                    [""highway""]
-                    [~""^(name|name:uk|name:ru)$""~""{streetRegex}"",i];
-                );
-                out geom;";
+            // 1) exact match first
+            var qExact = BuildOverpassQuery(lat0, lon0, radius, $"^{streetRegex}$");
+            // 2) fallback "contains" match
+            var qLoose = BuildOverpassQuery(lat0, lon0, radius, streetRegex);
 
-            using var client = new HttpClient();
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("SumyCRM/1.0 (contact: admin@giftsbakery.com.ua)");
+            var client = _httpFactory.CreateClient("overpass");
 
-            using var resp = await client.PostAsync(overpassUrl,
-                new FormUrlEncodedContent(new Dictionary<string, string> { ["data"] = q }), ct);
+            // Try: exact (with retries + mirror fallback), then loose (with retries + mirror fallback)
+            var lines = await ExecuteOverpassWithFallbackAsync(client, qExact, ct);
+            if (lines.Count == 0)
+                lines = await ExecuteOverpassWithFallbackAsync(client, qLoose, ct);
 
-            var json = await resp.Content.ReadAsStringAsync(ct);
-            resp.EnsureSuccessStatusCode();
+            // Cache: success long, empty very short (important)
+            _cache.Set(cacheKey, lines, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = lines.Count > 0 ? TimeSpan.FromDays(180) : TimeSpan.FromSeconds(45),
+                SlidingExpiration = lines.Count > 0 ? TimeSpan.FromDays(14) : TimeSpan.FromSeconds(45)
+            });
 
+            return lines;
+
+            string BuildOverpassQuery(double lat, double lon, int rad, string namePattern)
+            {
+                return $@"
+[out:json][timeout:25];
+(
+  way(around:{rad},{lat.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lon.ToString(System.Globalization.CultureInfo.InvariantCulture)})
+    [""highway""]
+    [~""^(name|name:uk|name:ru)$""~""{namePattern}"",i];
+);
+out geom;";
+            }
+        }
+
+        private async Task<List<List<(double lat, double lon)>>> ExecuteOverpassWithFallbackAsync(HttpClient client, string query, CancellationToken ct)
+        {
+            // Each endpoint: try 2 attempts (handles temporary overload)
+            foreach (var endpoint in OverpassEndpoints)
+            {
+                for (int attempt = 1; attempt <= 2; attempt++)
+                {
+                    try
+                    {
+                        using var resp = await client.PostAsync(endpoint,
+                            new FormUrlEncodedContent(new Dictionary<string, string> { ["data"] = query }), ct);
+
+                        var json = await resp.Content.ReadAsStringAsync(ct);
+
+                        // Retry only on transient statuses
+                        if ((int)resp.StatusCode is 429 or 502 or 503 or 504)
+                        {
+                            await Task.Delay(250 * attempt, ct);
+                            continue;
+                        }
+
+                        resp.EnsureSuccessStatusCode();
+
+                        return ParseOverpassGeom(json);
+                    }
+                    catch (TaskCanceledException) when (!ct.IsCancellationRequested)
+                    {
+                        // timeout -> retry
+                        await Task.Delay(250 * attempt, ct);
+                    }
+                    catch (HttpRequestException)
+                    {
+                        // network -> retry
+                        await Task.Delay(250 * attempt, ct);
+                    }
+                }
+            }
+
+            return new();
+        }
+
+        private static List<List<(double lat, double lon)>> ParseOverpassGeom(string json)
+        {
             using var doc = System.Text.Json.JsonDocument.Parse(json);
-            var elements = doc.RootElement.GetProperty("elements");
+            if (!doc.RootElement.TryGetProperty("elements", out var elements))
+                return new();
 
             var lines = new List<List<(double lat, double lon)>>();
 

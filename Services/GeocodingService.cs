@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using Microsoft.Extensions.Caching.Memory;
+using System.Net.Http.Headers;
 using System.Text.Json;
 
 namespace SumyCRM.Services
@@ -8,25 +9,28 @@ namespace SumyCRM.Services
         Task<(double lat, double lon)?> GeocodeAsync(string address, CancellationToken ct = default);
     }
 
-   
+
     public class NominatimGeocodingService : IGeocodingService
     {
-        private readonly HttpClient _http;
+        private readonly IHttpClientFactory _httpFactory;
+        private readonly IMemoryCache _cache;
 
-        public NominatimGeocodingService(HttpClient http) => _http = http;
+        public NominatimGeocodingService(IHttpClientFactory httpFactory, IMemoryCache cache)
+        {
+            _httpFactory = httpFactory;
+            _cache = cache;
+        }
 
         private static string NormalizeAddress(string address)
         {
-            address = address.Trim();
+            address = (address ?? "").Trim();
 
-            // If city already specified → do nothing
             if (address.Contains("Суми", StringComparison.OrdinalIgnoreCase) ||
                 address.Contains("Sumy", StringComparison.OrdinalIgnoreCase))
             {
                 return address;
             }
 
-            // Add default city
             return $"Суми, {address}";
         }
 
@@ -36,16 +40,22 @@ namespace SumyCRM.Services
 
             address = NormalizeAddress(address);
 
-            if (_http.DefaultRequestHeaders.UserAgent.Count == 0)
-                _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("SumyCRM", "1.0"));
+            // ✅ CACHE KEY
+            var cacheKey = $"geo:nominatim:{address.ToLowerInvariant()}";
+
+            // ✅ Try cache first
+            if (_cache.TryGetValue<(double lat, double lon)?>(cacheKey, out var cached))
+                return cached;
+
+            var http = _httpFactory.CreateClient("nominatim");
 
             var url =
-                "https://nominatim.openstreetmap.org/search" +
+                "search" +
                 "?format=jsonv2&limit=1&addressdetails=0" +
-                "&countrycodes=ua" +                  
+                "&countrycodes=ua" +
                 "&q=" + Uri.EscapeDataString(address);
 
-            using var resp = await _http.GetAsync(url, ct);
+            using var resp = await http.GetAsync(url, ct);
             var body = await resp.Content.ReadAsStringAsync(ct);
 
             if (!resp.IsSuccessStatusCode)
@@ -53,21 +63,31 @@ namespace SumyCRM.Services
 
             using var doc = JsonDocument.Parse(body);
             var arr = doc.RootElement;
-            if (arr.GetArrayLength() == 0) return null;
+            (double lat, double lon)? result = null;
 
-            var first = arr[0];
-
-            if (double.TryParse(first.GetProperty("lat").GetString(),
-                    System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out var lat) &&
-                double.TryParse(first.GetProperty("lon").GetString(),
-                    System.Globalization.NumberStyles.Any,
-                    System.Globalization.CultureInfo.InvariantCulture, out var lon))
+            if (arr.GetArrayLength() > 0)
             {
-                return (lat, lon);
+                var first = arr[0];
+
+                if (double.TryParse(first.GetProperty("lat").GetString(),
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out var lat) &&
+                    double.TryParse(first.GetProperty("lon").GetString(),
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out var lon))
+                {
+                    result = (lat, lon);
+                }
             }
 
-            return null;
+            // ✅ Cache both success and "null" to stop repeated slow calls for bad input
+            _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = result != null ? TimeSpan.FromDays(90) : TimeSpan.FromHours(6),
+                SlidingExpiration = TimeSpan.FromDays(7)
+            });
+
+            return result;
         }
     }
 }

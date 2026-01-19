@@ -19,6 +19,8 @@ builder.Services.AddTransient<ICallRecordingsRepository, EFCallRecordingsReposit
 builder.Services.AddTransient<IWaterLeakReports, EFWaterLeakReportsRepository>();
 builder.Services.AddHttpClient<IScheduleAudioService, ScheduleAudioService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
+builder.Services.AddScoped<IGeocodingService, NominatimGeocodingService>();
+
 builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options
     .UseMySql(
@@ -26,6 +28,20 @@ builder.Services.AddDbContext<AppDbContext>(options => options
         new MariaDbServerVersion(new Version(11, 1, 0))
     ));
 
+builder.Services.AddMemoryCache();
+
+builder.Services.AddHttpClient("nominatim", client =>
+{
+    client.BaseAddress = new Uri("https://nominatim.openstreetmap.org/");
+    client.Timeout = TimeSpan.FromSeconds(10);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("SumyCRM/1.0 (contact: admin@giftsbakery.com.ua)");
+});
+
+builder.Services.AddHttpClient("overpass", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(25);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("SumyCRM/1.0 (contact: admin@giftsbakery.com.ua)");
+});
 
 //Configure Identity system
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options => {
