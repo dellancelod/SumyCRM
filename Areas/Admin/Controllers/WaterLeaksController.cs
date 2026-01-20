@@ -65,11 +65,11 @@ namespace SumyCRM.Areas.Admin.Controllers
         }
 
         private static readonly string[] OverpassEndpoints = new[]
-{
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.nchc.org.tw/api/interpreter"
-};
+        {
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter",
+            "https://overpass.nchc.org.tw/api/interpreter"
+        };
 
         private async Task<List<List<(double lat, double lon)>>> GetStreetPolylinesAsync(string streetInput, CancellationToken ct)
         {
@@ -119,13 +119,13 @@ namespace SumyCRM.Areas.Admin.Controllers
             string BuildOverpassQuery(double lat, double lon, int rad, string namePattern)
             {
                 return $@"
-[out:json][timeout:25];
-(
-  way(around:{rad},{lat.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lon.ToString(System.Globalization.CultureInfo.InvariantCulture)})
-    [""highway""]
-    [~""^(name|name:uk|name:ru)$""~""{namePattern}"",i];
-);
-out geom;";
+                [out:json][timeout:25];
+                (
+                  way(around:{rad},{lat.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lon.ToString(System.Globalization.CultureInfo.InvariantCulture)})
+                    [""highway""]
+                    [~""^(name|name:uk|name:ru)$""~""{namePattern}"",i];
+                );
+                out geom;";
             }
         }
 

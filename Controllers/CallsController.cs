@@ -28,6 +28,7 @@ namespace SumyCRM.Controllers
         [IgnoreAntiforgeryToken] // для curl / Asterisk
         public async Task<IActionResult> Upload(
             [FromForm] IFormFile? audioName,
+            [FromForm] IFormFile audioAddress,
             [FromForm] IFormFile? audioText,
             [FromForm(Name = "caller")] string? caller,
             [FromForm(Name = "menu_item")] string? menu_item,
@@ -40,6 +41,9 @@ namespace SumyCRM.Controllers
             if (audioText == null || audioText.Length == 0)
                 return BadRequest("No audio text");
 
+            if (audioAddress == null || audioAddress.Length == 0)
+                return BadRequest("No audio name");
+
             if (audioName == null || audioName.Length == 0)
                 return BadRequest("No audio name");
 
@@ -48,9 +52,11 @@ namespace SumyCRM.Controllers
             Directory.CreateDirectory(folder);
 
             string fileNameForName = $"{Guid.NewGuid()}_{audioName.FileName}";
+            string fileNameForAddress = $"{Guid.NewGuid()}_{audioAddress.FileName}";
             string fileNameForText = $"{Guid.NewGuid()}_{audioText.FileName}";
 
             string fullPathName = Path.Combine(folder, fileNameForName);
+            string fullPathAddress = Path.Combine(folder, fileNameForAddress);
             string fullPathText = Path.Combine(folder, fileNameForText);
 
             using (var stream = new FileStream(fullPathText, FileMode.Create))
@@ -60,6 +66,10 @@ namespace SumyCRM.Controllers
             using (var stream = new FileStream(fullPathName, FileMode.Create))
             {
                 await audioName.CopyToAsync(stream);
+            }
+            using (var stream = new FileStream(fullPathAddress, FileMode.Create))
+            {
+                await audioAddress.CopyToAsync(stream);
             }
 
             // ===== Whisper STT =====
@@ -79,8 +89,12 @@ namespace SumyCRM.Controllers
             AudioTranscription transcriptionName =
                      await audioClient.TranscribeAudioAsync(fullPathName, options);
 
+            AudioTranscription transcriptionAddress =
+                     await audioClient.TranscribeAudioAsync(fullPathAddress, options);
+
             string transcriptText = CleanTranscript(transcriptionText.Text);
             string transcriptName = CleanTranscript(transcriptionName.Text);
+            string transcriptAddress = CleanTranscript(transcriptionAddress.Text);
 
             // ===== Save in DB =====
             if (!MenuToCategory.TryGetValue(menu_item, out var categoryId))
@@ -100,10 +114,12 @@ namespace SumyCRM.Controllers
                 Caller = caller,
                 Name = transcriptName,
                 Subcategory = menu_text,
+                Address = transcriptAddress,
                 Text = transcriptText,
                 IsCompleted = false,
                 AudioFilePath = "/audio/" + fileNameForText,
-                NameAudioFilePath = "/audio/" + fileNameForName
+                NameAudioFilePath = "/audio/" + fileNameForName,
+                AddressAudioFilePath = "/audio/" + fileNameForAddress
             };
 
             await _dataManager.Requests.SaveRequestAsync(record);

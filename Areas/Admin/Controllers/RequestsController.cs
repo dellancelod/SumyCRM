@@ -154,7 +154,9 @@ namespace SumyCRM.Areas.Admin.Controllers
                     (r.RequestNumber.ToString() ?? "").ToLower().Contains(term) ||
                     (r.Name ?? "").ToLower().Contains(term) ||
                     (r.Caller ?? "").ToLower().Contains(term) ||
+                    (r.Facility ?? "").ToLower().Contains(term) ||
                     (r.Subcategory ?? "").ToLower().Contains(term) ||
+                    (r.Address ?? "").ToLower().Contains(term) ||
                     (r.Text ?? "").ToLower().Contains(term) ||
                     ((r.Category != null ? r.Category.Title : "") ?? "").ToLower().Contains(term)
                 );
@@ -171,8 +173,10 @@ namespace SumyCRM.Areas.Admin.Controllers
                 requestNumber = r.RequestNumber,
                 name = r.Name,
                 caller = r.Caller,
+                facility = r.Facility,
                 category = r.Category?.Title,
                 subcategory = r.Subcategory,
+                address = r.Address,
                 text = r.Text,
                 nameAudio = r.NameAudioFilePath,
                 audio = r.AudioFilePath,
@@ -269,8 +273,10 @@ namespace SumyCRM.Areas.Admin.Controllers
                 query = query.Where(r =>
                     (r.Name ?? "").ToLower().Contains(term) ||
                     (r.Caller ?? "").ToLower().Contains(term) ||
+                    (r.Facility ?? "").ToLower().Contains(term) ||
                     (r.Subcategory ?? "").ToLower().Contains(term) ||
                     (r.Text ?? "").ToLower().Contains(term) ||
+                    (r.Address ?? "").ToLower().Contains(term) ||
                     (r.Category.Title ?? "").ToLower().Contains(term)
                 );
             }
@@ -290,8 +296,10 @@ namespace SumyCRM.Areas.Admin.Controllers
                 requestNumber = r.RequestNumber,
                 name = r.Name,
                 caller = r.Caller,
+                facility = r.Facility,
                 category = r.Category?.Title,
                 subcategory = r.Subcategory,
+                address = r.Address,
                 text = r.Text,
                 audio = r.AudioFilePath,
                 nameAudio = r.NameAudioFilePath,

@@ -23,6 +23,7 @@ namespace SumyCRM.Data.Repository.EntityFramework
 
             DeleteAudioFileIfExists(request.AudioFilePath);
             DeleteAudioFileIfExists(request.NameAudioFilePath);
+            DeleteAudioFileIfExists(request.AddressAudioFilePath);
 
             context.Requests.Remove(request);
             await context.SaveChangesAsync();
@@ -49,6 +50,7 @@ namespace SumyCRM.Data.Repository.EntityFramework
 
             DeleteAudioFileIfExists(request.AudioFilePath);
             DeleteAudioFileIfExists(request.NameAudioFilePath);
+            DeleteAudioFileIfExists(request.AddressAudioFilePath);
 
             context.Requests.Remove(request);
             await context.SaveChangesAsync();
