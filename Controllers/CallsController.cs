@@ -111,6 +111,7 @@ namespace SumyCRM.Controllers
                 RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
                 CategoryId = category.Id,
                 Category = category,
+                Facility = "Оберіть установу",
                 Caller = caller,
                 Name = transcriptName,
                 Subcategory = menu_text,
