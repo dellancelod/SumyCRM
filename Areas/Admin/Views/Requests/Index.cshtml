@@ -35,7 +35,7 @@
 <form method="get" class="row g-2 align-items-end mb-3">
 
     <!-- сохраняем completed и стартовую страницу -->
-    <input type="hidden" name="completed" value="@(areCompleted ? "true" : "false")" />
+    <input type="hidden" name="isCompleted" value="@(areCompleted ? "true" : "false")" />
     <input type="hidden" name="page" id="pageInput" value="@currentPage" />
 
     <div class="col-md-4">
@@ -327,7 +327,8 @@
                 const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
                 const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
                 const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
-                const isCompleted  = document.querySelector('input[name="isCompleted"]')?.value || state.completed;
+                const v = document.querySelector('input[name="isCompleted"]')?.value;
+                const isCompleted = (v === "true") ? true : (v === "false" ? false : state.completed);
 
                 return { categoryId, dateFrom, dateTo, isCompleted };
             }

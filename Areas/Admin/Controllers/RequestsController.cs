@@ -233,8 +233,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             string? term,
             bool? isCompleted,
             Guid? categoryId,
-            DateTime? dateFrom,
-            DateTime? dateTo,
+            string? dateFrom,
+            string? dateTo,
             int page = 1,
             int pageSize = 8)
         {
@@ -243,7 +243,8 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .AsQueryable();
 
             // completed / active
-            query = query.Where(r => r.IsCompleted == isCompleted);
+            if (isCompleted.HasValue)
+                query = query.Where(r => r.IsCompleted == isCompleted.Value);
 
             // фильтр по категории
             if (categoryId.HasValue)
@@ -311,7 +312,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 items,
                 total,
-                page,
+                currentPage = page,
                 totalPages = (int)Math.Ceiling(total / (double)pageSize)
             });
         }
