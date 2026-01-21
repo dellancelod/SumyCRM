@@ -106,6 +106,8 @@ namespace SumyCRM.Controllers
             if (category == null)
                 return BadRequest("Category not found");
 
+            var facility = await _dataManager.Facilities.GetFacilityByIdAsync(new Guid("9e10c51c-668e-4297-a18b-30cf66b2f2ae"));
+
             var record = new Request
             {
                 RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
@@ -113,6 +115,7 @@ namespace SumyCRM.Controllers
                 Category = category,
                 Caller = caller,
                 Name = transcriptName,
+                Facility = facility,
                 Subcategory = menu_text,
                 Address = transcriptAddress,
                 Text = transcriptText,

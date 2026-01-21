@@ -7,7 +7,7 @@ namespace SumyCRM.Models
         public int RequestNumber { get; set; }
         public Guid CategoryId { get; set; }
         public Category? Category { get; set; }
-        public Guid FacilityId { get; set; }
+        public Guid? FacilityId { get; set; }
         public Facility? Facility { get; set; }
         public string Caller { get; set; }
         public string Name { get; set; }
