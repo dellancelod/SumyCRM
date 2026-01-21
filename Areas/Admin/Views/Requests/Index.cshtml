@@ -20,6 +20,8 @@
     }
 
     <div class="d-flex align-items-center gap-2">
+    @if (User.IsInRole("admin"))
+        {
         <a asp-area="Admin"
            asp-controller="Requests"
            asp-action="Edit"
@@ -27,6 +29,7 @@
             <i class="fa-solid fa-plus"></i>
             Зареєструвати звернення
         </a>
+        }
         <div class="input-group input-group-sm" style="width: 250px;">
             <span class="input-group-text bg-white">
                 <i class="fa-solid fa-magnifying-glass"></i>

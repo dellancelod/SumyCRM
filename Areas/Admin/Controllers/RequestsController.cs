@@ -327,6 +327,16 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .Include(r => r.Facility)
                 .AsQueryable();
 
+            var userId = _userManager.GetUserId(User);
+
+            if (!User.IsInRole("admin"))
+            {
+                query = query.Where(r =>
+                    dataManager.UserFacilities.GetUserFacilities()
+                        .Any(uf => uf.UserId == userId && uf.FacilityId == r.FacilityId)
+                );
+            }
+
             // completed / active
             if (isCompleted.HasValue)
                 query = query.Where(r => r.IsCompleted == isCompleted.Value);
