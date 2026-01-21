@@ -36,7 +36,7 @@
 
     <!-- сохраняем completed и стартовую страницу -->
     <input type="hidden" name="completed" value="@(areCompleted ? "true" : "false")" />
-    <input type="hidden" name="page" value="1" />
+    <input type="hidden" name="page" id="pageInput" value="@currentPage" />
 
     <div class="col-md-4">
         <label class="form-label form-label-sm">Категорія</label>
@@ -297,9 +297,7 @@
         }
 
         document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
-            if (formToSubmit) {
-                formToSubmit.submit();
-            }
+            if (formToSubmit) formToSubmit.submit();
         });
 
         // ===== LIVE LOAD + AUTOREFRESH ДЛЯ ЗАЯВОК =====
@@ -307,81 +305,100 @@
             const searchInput   = document.getElementById('requestSearch');
             const tableBody     = document.getElementById('requestsTableBody');
             const paginationNav = document.getElementById('paginationNav');
+            const filtersForm   = document.getElementById('filtersForm');
+            const pageInput     = document.getElementById('pageInput');
 
             if (!tableBody) return;
 
-            const isAdmin = @User.IsInRole("admin").ToString().ToLower();   // "true"/"false"
-            const initialCompleted = @areCompleted.ToString().ToLower();     // "true"/"false"
-            const initialPage = @currentPage;                                // номер страницы
+            const isAdmin = @User.IsInRole("admin").ToString().ToLower();       // true/false
+            const initialCompleted = @areCompleted.ToString().ToLower();        // true/false
+            const initialPage = @currentPage;                                   // int
+
+            const state = {
+                page: initialPage,
+                completed: initialCompleted,
+                term: ''
+            };
 
             let typingTimer = null;
+            let lastController = null;
 
-            function buildUrl() {
-                // текущие значения фильтров и поиска
-                const term       = (searchInput?.value || '').trim();
+            function getFilters() {
                 const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
                 const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
                 const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
-                const page       = document.querySelector('input[name="page"]')?.value || initialPage;
-                const completed  = document.querySelector('input[name="completed"]')?.value
-                                  || initialCompleted;
+                const completed  = document.querySelector('input[name="completed"]')?.value || state.completed;
 
-                let url = '@Url.Action("GetList", "Requests", new { area = "Admin" })';
+                return { categoryId, dateFrom, dateTo, completed };
+            }
 
-                url += '?completed=' + encodeURIComponent(completed);
-                url += '&page=' + encodeURIComponent(page);
-                url += '&categoryId=' + encodeURIComponent(categoryId);
-                url += '&dateFrom=' + encodeURIComponent(dateFrom);
-                url += '&dateTo=' + encodeURIComponent(dateTo);
+            function buildUrl() {
+                const { categoryId, dateFrom, dateTo, completed } = getFilters();
 
-                if (term.length > 0) {
-                    url += '&term=' + encodeURIComponent(term);
+                const base = '@Url.Action("GetList", "Requests", new { area = "Admin" })';
+                const p = new URLSearchParams();
+
+                p.set('completed', completed);
+                p.set('page', String(state.page));
+                p.set('categoryId', categoryId);
+                p.set('dateFrom', dateFrom);
+                p.set('dateTo', dateTo);
+
+                if (state.term && state.term.trim().length > 0) {
+                    p.set('term', state.term.trim());
                 }
 
-                return url;
+                return base + '?' + p.toString();
+            }
+
+            function setPage(p) {
+                state.page = p;
+                if (pageInput) pageInput.value = String(p);
+            }
+
+            function escapeHtml(s) {
+                if (s === null || s === undefined) return '';
+                return String(s)
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
             }
 
             function renderTable(data) {
                 tableBody.innerHTML = '';
 
-                if (!data || !data.items || data.items.length === 0) {
-                    const colCount = isAdmin === 'true' ? 11 : 10;
+                const items = data?.items || [];
+                if (items.length === 0) {
+                    // У тебе в таблиці 13 колонок (№.. + 2 порожні заголовки)
                     tableBody.innerHTML =
-                        `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
+                        `<tr><td colspan="13" class="text-center text-muted">Нічого не знайдено</td></tr>`;
                     return;
                 }
 
-                data.items.forEach(item => {
+                items.forEach(item => {
                     const tr = document.createElement('tr');
 
-                    let audioHtml = '';
+                    const audioParts = [];
                     if (item.nameAudio) {
-                        audioHtml += `
-                            <label>
-                                <span>
-                                    <audio controls src="${item.nameAudio}"></audio>
-                                </span>
-                            </label>`;
+                        audioParts.push(`<label><span><audio controls src="${escapeHtml(item.nameAudio)}"></audio></span></label>`);
                     }
                     if (item.audio) {
-                        audioHtml += `
-                            <label>
-                                <span>
-                                    <audio controls src="${item.audio}"></audio>
-                                </span>
-                            </label>`;
+                        audioParts.push(`<label><span><audio controls src="${escapeHtml(item.audio)}"></audio></span></label>`);
                     }
+                    const audioHtml = audioParts.join('');
 
                     let actionsHtml = '';
                     if (item.isCompleted) {
                         if (isAdmin === 'true') {
                             actionsHtml = `
-                                <form style="display:inline-block;" id="form-${item.id}"
+                                <form style="display:inline-block;" id="form-${escapeHtml(item.id)}"
                                       action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
                                       method="post" class="d-inline">
-                                    <input type="hidden" name="id" value="${item.id}" />
+                                    <input type="hidden" name="id" value="${escapeHtml(item.id)}" />
                                     <button type="button" class="btn btn-sm btn-danger"
-                                            onclick="confirmDelete('${item.id}')">
+                                            onclick="confirmDelete('${escapeHtml(item.id)}')">
                                         <i class="fa fa-trash"></i>
                                     </button>
                                 </form>`;
@@ -390,25 +407,29 @@
                         actionsHtml = `
                             <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
                                   method="post">
-                                <input type="hidden" name="id" value="${item.id}" />
+                                <input type="hidden" name="id" value="${escapeHtml(item.id)}" />
                                 <button type="submit" class="btn btn-success">
                                     <i class="fa-solid fa-square-check fa-lg"></i>
                                 </button>
                             </form>`;
                     }
 
+                    // ВАЖЛИВО: вирівнюємо колонки під твій <thead>:
+                    // № | Номер | Установа | Ім'я | Телефон | Адреса | Категорія | Підкатегорія | Текст | Аудіо | Дата | (show) | (actions)
                     tr.innerHTML = `
-                        <th scope="row">${item.index}</th>
-                        <td><label><span>${item.requestNumber ?? ''}</span></label></td>
-                        <td><label><span>${item.name ?? ''}</span></label></td>
-                        <td><label><span>${item.caller ?? ''}</span></label></td>
-                        <td><label><span>${item.category ?? ''}</span></label></td>
-                        <td><label><span>${item.subcategory ?? ''}</span></label></td>
-                        <td><label><span>${item.text ?? ''}</span></label></td>
+                        <th scope="row">${escapeHtml(item.index)}</th>
+                        <td><label><span>${escapeHtml(item.requestNumber)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.facility)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.name)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.caller)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.address)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.category)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.subcategory)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.text)}</span></label></td>
                         <td>${audioHtml}</td>
-                        <td><label><span>${item.date ?? ''}</span></label></td>
+                        <td><label><span>${escapeHtml(item.date)}</span></label></td>
                         <td>
-                            <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${item.id}">
+                            <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}">
                                 <i class="fa-solid fa-eye fa-lg"></i>
                             </a>
                         </td>
@@ -419,36 +440,138 @@
                 });
             }
 
-            function loadRequests() {
-                const url = buildUrl();
+            function renderPagination(data) {
+                if (!paginationNav) return;
 
-                // если строка пустая — можно снова показывать пагинацию
-                const term = (searchInput?.value || '').trim();
-                if (paginationNav) {
-                    paginationNav.style.display = term.length === 0 ? 'block' : 'none';
+                const term = (state.term || '').trim();
+                if (term.length > 0) {
+                    paginationNav.style.display = 'none';
+                    return;
                 }
 
-                fetch(url)
-                    .then(r => r.json())
-                    .then(data => {
-                        renderTable(data);
-                        // при желании здесь можно ещё обновить цифры страниц в пагинации
-                    })
-                    .catch(err => console.error('Requests autoload error:', err));
+                const totalPages  = Number(data?.totalPages || 0);
+                const currentPage = Number(data?.currentPage || state.page);
+
+                if (!totalPages || totalPages <= 1) {
+                    paginationNav.style.display = 'none';
+                    return;
+                }
+
+                paginationNav.style.display = 'block';
+
+                const ul = paginationNav.querySelector('ul.pagination');
+                if (!ul) return;
+
+                ul.innerHTML = '';
+
+                const mkItem = (p, label, active, disabled, ariaLabel) => {
+                    const li = document.createElement('li');
+                    li.className = `page-item${active ? ' active' : ''}${disabled ? ' disabled' : ''}`;
+
+                    const a = document.createElement('a');
+                    a.className = 'page-link';
+                    a.href = '#';
+                    a.dataset.page = String(p);
+                    if (ariaLabel) a.setAttribute('aria-label', ariaLabel);
+                    a.innerHTML = label;
+
+                    li.appendChild(a);
+                    return li;
+                };
+
+                // prev
+                ul.appendChild(
+                    mkItem(
+                        currentPage - 1,
+                        '&laquo;',
+                        false,
+                        currentPage <= 1,
+                        'Попередня'
+                    )
+                );
+
+                for (let i = 1; i <= totalPages; i++) {
+                    ul.appendChild(mkItem(i, String(i), i === currentPage, false));
+                }
+
+                // next
+                ul.appendChild(
+                    mkItem(
+                        currentPage + 1,
+                        '&raquo;',
+                        false,
+                        currentPage >= totalPages,
+                        'Наступна'
+                    )
+                );
+
+                // делегування кліків
+                ul.querySelectorAll('a.page-link').forEach(a => {
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const p = Number(a.dataset.page || currentPage);
+                        if (!p || p < 1 || p > totalPages || p === currentPage) return;
+                        setPage(p);
+                        loadRequests();
+                    });
+                });
             }
 
-            // live search
+            function loadRequests() {
+                // abort previous
+                if (lastController) lastController.abort();
+                lastController = new AbortController();
+
+                const url = buildUrl();
+
+                fetch(url, { signal: lastController.signal })
+                    .then(r => {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    })
+                    .then(data => {
+                        // якщо сервер повертає currentPage/totalPages — підхопимо
+                        if (data?.currentPage) setPage(Number(data.currentPage));
+                        renderTable(data);
+                        renderPagination(data);
+                    })
+                    .catch(err => {
+                        if (err.name === 'AbortError') return;
+                        console.error('Requests autoload error:', err);
+                    });
+            }
+
+            // ==== events ====
+
+            // live search (debounce) + на пошук завжди page=1
             if (searchInput) {
                 searchInput.addEventListener('input', function () {
                     clearTimeout(typingTimer);
+                    state.term = (searchInput.value || '');
+                    setPage(1);
                     typingTimer = setTimeout(loadRequests, 300);
                 });
             }
 
-            setInterval(loadRequests, 10000);
+            // submit фільтрів: не перезавантажуємо сторінку, а вантажимо AJAX-ом
+            if (filtersForm) {
+                filtersForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    // якщо користувач натиснув "Застосувати" — йдемо на 1 сторінку
+                    setPage(1);
+                    loadRequests();
+                });
+            }
 
-            // при желании можно один раз дернуть на старте:
-            // loadRequests();
+            // автоперезавантаження без скидання сторінки
+            setInterval(() => {
+                // не робимо автозапит поки користувач набирає (щоб не мигало)
+                if (typingTimer) return;
+                loadRequests();
+            }, 10000);
+
+            // перший запуск (щоб одразу працювало після відкриття)
+            loadRequests();
         })();
     </script>
 }

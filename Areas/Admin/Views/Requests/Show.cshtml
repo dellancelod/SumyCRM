@@ -16,8 +16,11 @@
                 </div>
                 <div class="card-body">
                     <p><strong>Номер заявки:</strong> @Model.RequestNumber</p>
+                    <p><strong>Установа:</strong> @Model.Facility</p>
                     <p><strong>Дата додавання:</strong> @Model.DateAdded.ToString("dd.MM.yyyy HH:mm")</p>
                     <p><strong>Номер телефону:</strong> @Model.Caller</p>
+                    <p><strong>Адреса:</strong> @Model.Address</p>
+                    <p><strong>Категорія:</strong> @Model.Category.Title</p>
                     <p><strong>Підкатегорія:</strong> @Model.Subcategory</p>
                     <p><strong>Текст:</strong> @Model.Text</p>
                     <p><strong>Аудіо:</strong> <audio controls src="@Model.AudioFilePath"></audio></p>
