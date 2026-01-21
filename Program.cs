@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using SumyCRM.Data;
 using SumyCRM.Data.Repository.EntityFramework;
 using SumyCRM.Data.Repository.Interfaces;
@@ -85,6 +86,12 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider("/usr/share/asterisk/sounds/en"),
+    RequestPath = "/audio/schedules"
+});
 
 app.UseRouting();
 app.UseCookiePolicy();
