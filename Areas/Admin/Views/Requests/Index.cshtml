@@ -327,9 +327,9 @@
                 const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
                 const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
                 const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
-                const completed  = document.querySelector('input[name="completed"]')?.value || state.completed;
+                const isCompleted  = document.querySelector('input[name="isCompleted"]')?.value || state.completed;
 
-                return { categoryId, dateFrom, dateTo, completed };
+                return { categoryId, dateFrom, dateTo, isCompleted };
             }
 
             function buildUrl() {
