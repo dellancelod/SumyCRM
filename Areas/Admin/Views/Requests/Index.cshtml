@@ -389,6 +389,9 @@
                     if (item.nameAudio) {
                         audioParts.push(`<label><span><audio controls src="${escapeHtml(item.nameAudio)}"></audio></span></label>`);
                     }
+                    if (item.addressAudio) {
+                        audioParts.push(`<label><span><audio controls src="${escapeHtml(item.addressAudio)}"></audio></span></label>`);
+                    }
                     if (item.audio) {
                         audioParts.push(`<label><span><audio controls src="${escapeHtml(item.audio)}"></audio></span></label>`);
                     }

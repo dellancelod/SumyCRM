@@ -304,6 +304,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 text = r.Text,
                 audio = r.AudioFilePath,
                 nameAudio = r.NameAudioFilePath,
+                addressAudio = r.AddressAudioFilePath,
                 date = r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
                 isCompleted = r.IsCompleted
             });
