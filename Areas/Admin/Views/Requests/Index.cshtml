@@ -20,6 +20,13 @@
     }
 
     <div class="d-flex align-items-center gap-2">
+        <a asp-area="Admin"
+           asp-controller="Requests"
+           asp-action="Edit"
+           class="btn btn-success btn-sm">
+            <i class="fa-solid fa-plus"></i>
+            Зареєструвати звернення
+        </a>
         <div class="input-group input-group-sm" style="width: 250px;">
             <span class="input-group-text bg-white">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -101,6 +108,7 @@
                         <th scope="col">Дата</th>
                         <th scope="col"></th>
                         <th scope="col"></th>
+                        <th scope="col"></th>
                     </tr>
                 </thead>
                 <tbody id="requestsTableBody">
@@ -115,7 +123,7 @@
                             </td>
                             <td>
                                 <label>
-                                    <span>@item.Facility</span>
+                                    <span>@item.Facility?.Name</span>
                                 </label>
                             </td>
                             <td>
@@ -177,6 +185,17 @@
                                     <i class="fa-solid fa-eye fa-lg"></i>
                                 </a>
                             </td>
+                            @if (item.IsCompleted)
+                            {
+                                <td>
+                                    <a asp-area="Admin"
+                                    asp-controller="Requests"
+                                    asp-action="Edit"
+                                    asp-route-id="@item.Id">
+                                        <i class="fa-regular fa-pen-to-square fa-lg"></i>
+                                    </a>
+                                </td>
+                            }
                             <td>
 
                                     @if (item.IsCompleted)
@@ -378,7 +397,7 @@
                 if (items.length === 0) {
                     // У тебе в таблиці 13 колонок (№.. + 2 порожні заголовки)
                     tableBody.innerHTML =
-                        `<tr><td colspan="13" class="text-center text-muted">Нічого не знайдено</td></tr>`;
+                        `<tr><td colspan="14" class="text-center text-muted">Нічого не знайдено</td></tr>`;
                     return;
                 }
 
@@ -424,6 +443,16 @@
 
                     // ВАЖЛИВО: вирівнюємо колонки під твій <thead>:
                     // № | Номер | Установа | Ім'я | Телефон | Адреса | Категорія | Підкатегорія | Текст | Аудіо | Дата | (show) | (actions)
+                        const editHtml = isAdmin
+                                ? `
+                                    <td>
+                                        <a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
+                                            <i class="fa-regular fa-pen-to-square fa-lg"></i>
+                                        </a>
+                                    </td>
+                                  `
+                                : '';
+                    
                     tr.innerHTML = `
                         <th scope="row">${escapeHtml(item.index)}</th>
                         <td><label><span>${escapeHtml(item.requestNumber)}</span></label></td>
@@ -441,6 +470,7 @@
                                 <i class="fa-solid fa-eye fa-lg"></i>
                             </a>
                         </td>
+                        ${editHtml}
                         <td>${actionsHtml}</td>
                     `;
 

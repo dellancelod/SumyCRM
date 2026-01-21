@@ -30,6 +30,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             // базовый запрос
             var query = dataManager.Requests.GetRequests()
                 .Include(r => r.Category)
+                .Include(r => r.Facility)
                 .Where(r => r.IsCompleted == completed)
                 .OrderByDescending(r => r.RequestNumber)
                 .AsQueryable();
@@ -100,9 +101,92 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return View(model);
         }
+
+        [HttpGet]
+        public async Task<IActionResult> Edit(Guid? id, bool completed = false)
+        {
+            ViewBag.Completed = completed;
+
+            ViewBag.Categories = await dataManager.Categories.GetCategories()
+                .OrderBy(c => c.Title)
+                .ToListAsync();
+
+            ViewBag.Facilities = await dataManager.Facilities.GetFacilities()
+                .OrderBy(f => f.Name)
+                .ToListAsync();
+
+            if (!id.HasValue || id.Value == Guid.Empty)
+            {
+                return View(new Request
+                {
+                    Id = Guid.Empty,
+                    DateAdded = DateTime.UtcNow,
+                    IsCompleted = false
+                });
+            }
+
+            var entity = await dataManager.Requests.GetRequests()
+                .Include(r => r.Category)
+                .Include(r => r.Facility)
+                .FirstOrDefaultAsync(r => r.Id == id.Value);
+
+            if (entity == null) return NotFound();
+
+            return View(entity);
+        }
+
+        // ========= EDIT (POST) =========
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(Request model, bool completed = false)
+        {
+            ViewBag.Completed = completed;
+
+            ViewBag.Categories = await dataManager.Categories.GetCategories()
+                .OrderBy(c => c.Title)
+                .ToListAsync();
+
+            ViewBag.Facilities = await dataManager.Facilities.GetFacilities()
+                .OrderBy(f => f.Name)
+                .ToListAsync();
+
+            if (!ModelState.IsValid)
+                return View(model);
+
+            if (model.Id == Guid.Empty)
+            {
+                model.IsCompleted = false;
+
+                await dataManager.Requests.SaveRequestAsync(model);
+            }
+            else
+            {
+                var entity = await dataManager.Requests.GetRequestByIdAsync(model.Id);
+                if (entity == null) return NotFound();
+
+                entity.RequestNumber = model.RequestNumber;
+                entity.Name = model.Name;
+                entity.Caller = model.Caller;
+                entity.Subcategory = model.Subcategory;
+                entity.Address = model.Address;
+                entity.Text = model.Text;
+                entity.CategoryId = model.CategoryId;
+                entity.FacilityId = model.FacilityId;
+
+                await dataManager.Requests.SaveRequestAsync(entity);
+            }
+
+            return RedirectToAction(nameof(Index), new { page = 1, completed });
+        }
+
         public async Task<IActionResult> Show(Guid id)
         {
-            var model = await dataManager.Requests.GetRequestByIdAsync(id);
+            var model = await dataManager.Requests.GetRequests()
+                .Include(r => r.Category)
+                .Include(r => r.Facility)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (model == null) return NotFound();
 
             return View(model);
         }
@@ -154,7 +238,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                     (r.RequestNumber.ToString() ?? "").ToLower().Contains(term) ||
                     (r.Name ?? "").ToLower().Contains(term) ||
                     (r.Caller ?? "").ToLower().Contains(term) ||
-                    (r.Facility ?? "").ToLower().Contains(term) ||
+                    (r.Facility.Name ?? "").ToLower().Contains(term) ||
                     (r.Subcategory ?? "").ToLower().Contains(term) ||
                     (r.Address ?? "").ToLower().Contains(term) ||
                     (r.Text ?? "").ToLower().Contains(term) ||
@@ -240,6 +324,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         {
             var query = dataManager.Requests.GetRequests()
                 .Include(r => r.Category)
+                .Include(r => r.Facility)
                 .AsQueryable();
 
             // completed / active
@@ -274,7 +359,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 query = query.Where(r =>
                     (r.Name ?? "").ToLower().Contains(term) ||
                     (r.Caller ?? "").ToLower().Contains(term) ||
-                    (r.Facility ?? "").ToLower().Contains(term) ||
+                    (r.Facility == null ? "" : r.Facility.Name).ToLower().Contains(term) ||
                     (r.Subcategory ?? "").ToLower().Contains(term) ||
                     (r.Text ?? "").ToLower().Contains(term) ||
                     (r.Address ?? "").ToLower().Contains(term) ||
@@ -297,7 +382,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 requestNumber = r.RequestNumber,
                 name = r.Name,
                 caller = r.Caller,
-                facility = r.Facility,
+                facility = r.Facility != null ? r.Facility.Name : "",
                 category = r.Category?.Title,
                 subcategory = r.Subcategory,
                 address = r.Address,

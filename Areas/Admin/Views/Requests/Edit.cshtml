@@ -1,0 +1,89 @@
+﻿@model SumyCRM.Models.Request
+@{
+    var categories = ViewBag.Categories as List<SumyCRM.Models.Category> ?? new();
+    var facilities = ViewBag.Facilities as List<SumyCRM.Models.Facility> ?? new();
+
+    bool completed = (bool)(ViewBag.Completed ?? false);
+    ViewData["Title"] = Model?.Id == Guid.Empty ? "Нове звернення" : "Редагування звернення";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+<form asp-area="Admin" asp-controller="Requests" asp-action="Edit" method="post" class="row g-3">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="All" class="text-danger"></div>
+    <input type="hidden" name="completed" value="@(completed ? "true" : "false")" />
+    <input type="hidden" asp-for="Id" />
+
+    <div class="col-md-3">
+        <label class="form-label">Номер звернення</label>
+        <input asp-for="RequestNumber" class="form-control" />
+        <span asp-validation-for="RequestNumber" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">Телефон</label>
+        <input asp-for="Caller" class="form-control" />
+        <span asp-validation-for="Caller" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">Ім'я</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label>Установа</label>
+        <select asp-for="FacilityId" class="form-select">
+            <option value="">-- оберіть установу --</option>
+            @foreach (var f in facilities)
+            {
+                <option value="@f.Id">@f.Name</option>
+            }
+        </select>
+        <span asp-validation-for="FacilityId" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">Адреса</label>
+        <input asp-for="Address" class="form-control" />
+        <span asp-validation-for="Address" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label>Категорія</label>
+        <select asp-for="CategoryId" class="form-select">
+            <option value="">-- оберіть --</option>
+            @foreach (var c in categories)
+            {
+                <option value="@c.Id">@c.Title</option>
+            }
+        </select>
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label">Підкатегорія</label>
+        <input asp-for="Subcategory" class="form-control" />
+        <span asp-validation-for="Subcategory" class="text-danger"></span>
+    </div>
+
+    <div class="col-12">
+        <label class="form-label">Текст</label>
+        <textarea asp-for="Text" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="Text" class="text-danger"></span>
+    </div>
+
+    <div class="col-12 d-flex gap-2">
+        <button type="submit" class="btn btn-success">Зберегти</button>
+        <a class="btn btn-outline-secondary"
+           asp-area="Admin" asp-controller="Requests" asp-action="Index"
+           asp-route-page="1" asp-route-completed="@completed">
+            Назад
+        </a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
