@@ -40,12 +40,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 var userId = _userManager.GetUserId(User);
 
-                var allowedCategoryIds = await dataManager.UserCategories.GetUserCategories()
+                var allowedFacilitiesIds = await dataManager.UserFacilities.GetUserFacilities()
                     .Where(uc => uc.UserId == userId)
-                    .Select(uc => uc.CategoryId)
+                    .Select(uc => uc.FacilityId)
                     .ToListAsync();
 
-                query = query.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+                query = query.Where(r => allowedFacilitiesIds.Contains(r.FacilityId));
             }
 
             // ====== ФИЛЬТР ПО КАТЕГОРИИ ======
@@ -222,12 +222,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 var userId = _userManager.GetUserId(User);
 
-                var allowedCategoryIds = await dataManager.UserCategories.GetUserCategories()
+                var allowedFacilityIds = await dataManager.UserFacilities.GetUserFacilities()
                     .Where(uc => uc.UserId == userId)
-                    .Select(uc => uc.CategoryId)
+                    .Select(uc => uc.FacilityId)
                     .ToListAsync();
 
-                query = query.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+                query = query.Where(r => allowedFacilityIds.Contains(r.FacilityId));
             }
 
             if (!string.IsNullOrWhiteSpace(term))
@@ -298,12 +298,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 var userId = _userManager.GetUserId(User);
 
-                var allowedCategoryIds = dataManager.UserCategories.GetUserCategories()
+                var allowedFacilityIds = dataManager.UserFacilities.GetUserFacilities()
                         .Where(uc => uc.UserId == userId)
-                        .Select(uc => uc.CategoryId)
+                        .Select(uc => uc.FacilityId)
                         .ToList();
 
-                query = query.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+                query = query.Where(r => allowedFacilityIds.Contains(r.FacilityId));
             }
 
             return Json(new

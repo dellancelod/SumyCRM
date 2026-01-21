@@ -2,12 +2,12 @@
 
 namespace SumyCRM.Models
 {
-    public class UserCategory
+    public class UserFacility
     {
         public string UserId { get; set; } = default!;
-        public Guid CategoryId { get; set; }
+        public Guid FacilityId { get; set; }
 
         public IdentityUser User { get; set; } = default!;
-        public Category Category { get; set; } = default!;
+        public Facility Facility { get; set; } = default!;
     }
 }

@@ -3,16 +3,16 @@ using SumyCRM.Models;
 
 namespace SumyCRM.Data.Repository.EntityFramework
 {
-    public class EFUserCategories : IUserCategories
+    public class EFUserFacilities : IUserFacilities
     {
         private readonly AppDbContext context;
-        public EFUserCategories(AppDbContext context)
+        public EFUserFacilities(AppDbContext context)
         {
             this.context = context;
         }
-        public IQueryable<UserCategory> GetUserCategories()
+        public IQueryable<UserFacility> GetUserFacilities()
         {
-            return context.UserCategories;
+            return context.UserFacilities;
         }
     }
 }

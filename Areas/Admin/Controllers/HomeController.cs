@@ -35,12 +35,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 var userId = _userManager.GetUserId(User);
 
-                var allowedCategoryIds = _dataManager.UserCategories.GetUserCategories()
+                var allowedFacilityIds = _dataManager.UserFacilities.GetUserFacilities()
                         .Where(uc => uc.UserId == userId)
-                    .Select(uc => uc.CategoryId)
+                    .Select(uc => uc.FacilityId)
                     .ToList();
 
-                requests = requests.Where(r => allowedCategoryIds.Contains(r.CategoryId)).ToList();
+                requests = requests.Where(r => allowedFacilityIds.Contains(r.FacilityId)).ToList();
             }
 
             var activeCount = requests.Count(r => !r.IsCompleted);
@@ -76,12 +76,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 var userId = _userManager.GetUserId(User);
 
-                var allowedCategoryIds = _dataManager.UserCategories.GetUserCategories()
+                var allowedFacilityIds = _dataManager.UserFacilities.GetUserFacilities()
                     .Where(uc => uc.UserId == userId)
-                    .Select(uc => uc.CategoryId)
+                    .Select(uc => uc.FacilityId)
                     .ToList();
 
-                requestsQuery = requestsQuery.Where(r => allowedCategoryIds.Contains(r.CategoryId));
+                requestsQuery = requestsQuery.Where(r => allowedFacilityIds.Contains(r.FacilityId));
             }
 
             var requests = requestsQuery.ToList();
