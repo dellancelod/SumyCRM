@@ -333,12 +333,12 @@
             }
 
             function buildUrl() {
-                const { categoryId, dateFrom, dateTo, completed } = getFilters();
+                const { categoryId, dateFrom, dateTo, isCompleted } = getFilters();
 
                 const base = '@Url.Action("GetList", "Requests", new { area = "Admin" })';
                 const p = new URLSearchParams();
 
-                p.set('completed', completed);
+                p.set('isCompleted', isCompleted);
                 p.set('page', String(state.page));
                 p.set('categoryId', categoryId);
                 p.set('dateFrom', dateFrom);

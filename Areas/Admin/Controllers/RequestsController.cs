@@ -231,7 +231,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         [HttpGet]
         public async Task<IActionResult> GetList(
             string? term,
-            bool isCompleted,
+            bool completed,
             Guid? categoryId,
             string? dateFrom,
             string? dateTo,
@@ -243,7 +243,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .AsQueryable();
 
             // completed / active
-            query = query.Where(r => r.IsCompleted == isCompleted);
+            query = query.Where(r => r.IsCompleted == completed);
 
             // фильтр по категории
             if (categoryId.HasValue)
