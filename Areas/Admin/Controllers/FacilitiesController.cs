@@ -11,6 +11,9 @@ namespace SumyCRM.Areas.Admin.Controllers
     public class FacilitiesController : Controller
     {
         private readonly DataManager dataManager;
+
+        private static readonly Guid NONE_FACILITY_ID = new Guid("9e10c51c-668e-4297-a18b-30cf66b2f2ae");
+
         public FacilitiesController(DataManager dataManager)
         {
             this.dataManager = dataManager;
@@ -19,8 +22,10 @@ namespace SumyCRM.Areas.Admin.Controllers
         {
             int pageSize = 7; // Items per page
 
-            var query = dataManager.Facilities.GetFacilities().AsQueryable();
-            
+            var query = dataManager.Facilities.GetFacilities()
+                    .Where(f => f.Id != NONE_FACILITY_ID)
+                    .AsQueryable();
+
             var total = await query.CountAsync();
 
             var pageItems = await query
@@ -44,7 +49,8 @@ namespace SumyCRM.Areas.Admin.Controllers
         [HttpGet]
         public async Task<IActionResult> Search(string term)
         {
-            var query = dataManager.Facilities.GetFacilities();
+            var query = dataManager.Facilities.GetFacilities()
+                    .Where(f => f.Id != NONE_FACILITY_ID);
 
             if (!string.IsNullOrWhiteSpace(term))
             {
