@@ -58,9 +58,9 @@
 
             // 16kHz, mono, signed 16-bit PCM
             var args = $"-y -i \"{inputPath}\" " +
-               "-ac 1 -ar 16000 -c:a pcm_s16le " +
-               "-af \"highpass=f=120,lowpass=f=3800,afftdn,loudnorm=I=-16:TP=-1.5:LRA=11\" " +
-               $"\"{outPath}\"";
+                "-ac 1 -ar 16000 -c:a pcm_s16le " +
+                "-af \"highpass=f=80,lowpass=f=7000,dynaudnorm=f=150:g=10\" " +
+                $"\"{outPath}\"";
 
             var psi = new System.Diagnostics.ProcessStartInfo
             {
