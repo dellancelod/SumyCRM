@@ -75,27 +75,52 @@ namespace SumyCRM.Controllers
             // ===== Whisper STT =====
 
             AudioClient audioClient = new("whisper-1", _apiKey);
-            AudioTranscriptionOptions options = new()
-            {
-                // Force Ukrainian
-                Language = "uk",
 
-                // можно не задавать, по умолчанию вернётся просто текст
+            AudioTranscriptionOptions nameOptions = new()
+            {
+                Language = "uk",
                 ResponseFormat = AudioTranscriptionFormat.Text,
-                Prompt = "Це звернення до міських служб. Ім'я, прізвище та по-батькові, адреса в місті Суми, Україна, може містити дріб. Українська мова. Звернення може стосуватися таких тем: маршрутки, транспорт, теплопостачання, робота ліфтів, водовідведення, водопостачання, енергопостачання, зв'язок, гаряче водопостачання, благоустрій, вуличне освітлення, ремонт житла, газопостачання"
+                Temperature = 0.0f,
+                Prompt =
+                    "Розпізнай ТІЛЬКИ ім'я та прізвище (за потреби по батькові). " +
+                    "Українська. Без зайвих слів, без пояснень. " +
+                    "Приклад: 'Іваненко Петро Олексійович'."
             };
+            AudioTranscriptionOptions addressOptions = new()
+            {
+                Language = "uk",
+                ResponseFormat = AudioTranscriptionFormat.Text,
+                Temperature = 0.0f,
+                Prompt =
+                    "Розпізнай ТІЛЬКИ адресу в місті Суми (Україна). " +
+                    "Формат: 'вул. ..., буд. ..., кв. ...' або 'просп. ..., буд. ...'. " +
+                    "Збережи всі цифри, дроби (наприклад 12/1), корпуси, під'їзд. " +
+                    "Без зайвих фраз."
+            };
+            AudioTranscriptionOptions textOptions = new()
+            {
+                Language = "uk",
+                ResponseFormat = AudioTranscriptionFormat.Text,
+                Temperature = 0.2f, // чуть мягче для длинной речи
+                Prompt =
+                    "Це звернення до міських служб. Українська мова. " +
+                    "Передай зміст звернення одним текстом без вигаданих деталей. " +
+                    "Тематика: транспорт/маршрутки, вода/водовідведення, тепло, ліфти, " +
+                    "електроенергія, газ, благоустрій, освітлення, ремонт житла."
+            };
+            
             var whisperTextPath = await ConvertToWhisperWavAsync(fullPathText, HttpContext.RequestAborted);
             var whisperNamePath = await ConvertToWhisperWavAsync(fullPathName, HttpContext.RequestAborted);
             var whisperAddrPath = await ConvertToWhisperWavAsync(fullPathAddress, HttpContext.RequestAborted);
 
             AudioTranscription transcriptionText =
-                     await audioClient.TranscribeAudioAsync(whisperTextPath, options);
+                     await audioClient.TranscribeAudioAsync(whisperTextPath, textOptions);
 
             AudioTranscription transcriptionName =
-                     await audioClient.TranscribeAudioAsync(whisperNamePath, options);
+                     await audioClient.TranscribeAudioAsync(whisperNamePath, nameOptions);
 
             AudioTranscription transcriptionAddress =
-                     await audioClient.TranscribeAudioAsync(whisperAddrPath, options);
+                     await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
 
             string transcriptText = CleanTranscript(transcriptionText.Text);
             string transcriptName = CleanTranscript(transcriptionName.Text);
