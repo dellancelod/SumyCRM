@@ -319,7 +319,84 @@
         </div>
     </div>
 </div>
+
+<!-- Toast Message -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100">
+    <div id="opToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-body d-flex align-items-center gap-2" id="opToastBody">
+            <span id="opToastIcon" class="fs-5">✅</span>
+            <span id="opToastText" class="flex-grow-1"></span>
+            <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="toast"></button>
+        </div>
+
+        <!-- progress bar -->
+        <div class="progress" style="height:4px;">
+            <div id="opToastProgress" class="progress-bar" role="progressbar"></div>
+        </div>
+    </div>
+</div>
 @section Scripts {
+    <script>
+        (function () {
+          const message = @Html.Raw(
+                    System.Text.Json.JsonSerializer.Serialize(
+                        TempData["ToastMessage"]?.ToString() ?? ""
+                    )
+                );
+          const type = '@(TempData["ToastType"]?.ToString() ?? "success")';
+
+          if (!message) return;
+
+          const toastEl = document.getElementById('opToast');
+          const toastText = document.getElementById('opToastText');
+          const toastIcon = document.getElementById('opToastIcon');
+          const progressEl = document.getElementById('opToastProgress');
+          if (!toastEl || !toastText || !toastIcon || !progressEl) return;
+
+          // styles by type
+          toastEl.classList.remove('text-bg-success','text-bg-danger','text-bg-warning','text-bg-info');
+          toastEl.classList.add(`text-bg-${type}`);
+
+          // icon by type
+          const iconMap = {
+            success: '✅',
+            danger: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+          };
+          toastIcon.textContent = iconMap[type] || '✅';
+
+          toastText.textContent = message;
+
+          const delay = 2500; // ms
+
+          const toast = new bootstrap.Toast(toastEl, { autohide: true, delay });
+
+          // reset + animate progress
+        function startProgress() {
+          progressEl.style.transition = 'none';
+          progressEl.style.width = '100%';
+
+          // маленька пауза, щоб браузер "побачив" 100% перед анімацією
+          setTimeout(() => {
+            progressEl.style.transition = `width ${delay}ms linear`;
+            progressEl.style.width = '0%';
+          }, 30);
+        }
+
+          // when shown -> run progress
+          toastEl.addEventListener('shown.bs.toast', startProgress);
+
+          // when hidden -> cleanup for next time
+          toastEl.addEventListener('hidden.bs.toast', () => {
+            progressEl.style.transition = 'none';
+            progressEl.style.width = '0%';
+          });
+
+          toast.show();
+        })();
+    </script>
+
     <script>
         let formToSubmit = null;
 
@@ -629,7 +706,7 @@
                 // не робимо автозапит поки користувач набирає (щоб не мигало)
                 if (typingTimer) return;
                 loadRequests();
-            }, 10000);
+            }, 60000);
 
             // перший запуск (щоб одразу працювало після відкриття)
             loadRequests();

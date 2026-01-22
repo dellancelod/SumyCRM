@@ -127,7 +127,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             DateTime? dateFrom = null,
             DateTime? dateTo = null)
         {
-            const int pageSize = 8;
+            const int pageSize = 5;
 
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
@@ -232,6 +232,9 @@ namespace SumyCRM.Areas.Admin.Controllers
             request.IsCompleted = true;
             await dataManager.Requests.SaveRequestAsync(request);
 
+            TempData["ToastMessage"] = $"Звернення №{request.RequestNumber} позначено як виконане.";
+            TempData["ToastType"] = "success";
+
             return RedirectToAction(nameof(Index), new { completed = false });
         }
 
@@ -245,7 +248,17 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (entity == null) return NotFound();
 
             if (entity.IsCompleted)
+            {
                 await dataManager.Requests.DeleteRequestAsync(entity);
+
+                TempData["ToastMessage"] = $"Звернення №{entity.RequestNumber} видалено.";
+                TempData["ToastType"] = "danger";
+            }
+            else
+            {
+                TempData["ToastMessage"] = "Видаляти можна лише виконані звернення.";
+                TempData["ToastType"] = "warning";
+            }
 
             return RedirectToAction(nameof(Index), new { page = 1, completed = true });
         }
@@ -306,7 +319,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             string? dateFrom,
             string? dateTo,
             int page = 1,
-            int pageSize = 8)
+            int pageSize = 5)
         {
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
