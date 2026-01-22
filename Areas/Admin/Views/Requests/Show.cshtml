@@ -23,7 +23,12 @@
                     <p><strong>Категорія:</strong> @Model.Category.Title</p>
                     <p><strong>Підкатегорія:</strong> @Model.Subcategory</p>
                     <p><strong>Текст:</strong> @Model.Text</p>
-                    <p><strong>Аудіо:</strong> <audio controls src="@Model.AudioFilePath"></audio></p>
+                    <p><strong>Аудіо:</strong> 
+                        <audio controls src="@Model.NameAudioFilePath"></audio>
+                        <audio controls src="@Model.AddressAudioFilePath"></audio>
+                        <audio controls src="@Model.AudioFilePath"></audio>
+
+                        </p>
                     <p><strong>Статус:</strong> @(Model.IsCompleted ? "Завершено" : "Не завершено")</p>
                 </div>
                 

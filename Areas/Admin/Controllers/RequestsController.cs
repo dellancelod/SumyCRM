@@ -109,6 +109,14 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .OrderBy(f => f.Name)
                 .ToListAsync();
         }
+        private async Task<int> GetNextRequestNumberAsync()
+        {
+            // Якщо таблиця порожня — буде 1
+            var last = await dataManager.Requests.GetRequests()
+                .MaxAsync(r => (int?)r.RequestNumber);
+
+            return (last ?? 0) + 1;
+        }
 
         // ----------------- actions -----------------
 
@@ -153,9 +161,12 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             if (!id.HasValue || id.Value == Guid.Empty)
             {
+                var nextNumber = await GetNextRequestNumberAsync();
                 return View(new Request
                 {
-                    IsCompleted = false
+                    IsCompleted = false,
+                    RequestNumber = nextNumber
+
                 });
             }
 
