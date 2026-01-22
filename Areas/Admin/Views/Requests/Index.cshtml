@@ -112,6 +112,7 @@
                         <th scope="col"></th>
                         <th scope="col"></th>
                         <th scope="col"></th>
+                        <th scope="col"></th>
                     </tr>
                 </thead>
                 <tbody id="requestsTableBody">
@@ -186,6 +187,12 @@
                             <td>
                                 <a asp-area="Admin" asp-controller="Requests" asp-action="Show" asp-route-id="@item.Id">
                                     <i class="fa-solid fa-eye fa-lg"></i>
+                                </a>
+                            </td>
+
+                            <td>
+                                <a asp-area="Admin" asp-controller="Requests" asp-action="Print" asp-route-id="@item.Id" target="_blank" title="Друк">
+                                    <i class="fa-solid fa-print fa-lg"></i>
                                 </a>
                             </td>
                             @if (item.IsCompleted)
@@ -450,15 +457,23 @@
 
                     // ВАЖЛИВО: вирівнюємо колонки під твій <thead>:
                     // № | Номер | Установа | Ім'я | Телефон | Адреса | Категорія | Підкатегорія | Текст | Аудіо | Дата | (show) | (actions)
-                        const editHtml = isAdmin
-                                ? `
-                                    <td>
-                                        <a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
-                                            <i class="fa-regular fa-pen-to-square fa-lg"></i>
-                                        </a>
-                                    </td>
-                                  `
-                                : '';
+                    const editHtml = isAdmin
+                            ? `
+                                <td>
+                                    <a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
+                                        <i class="fa-regular fa-pen-to-square fa-lg"></i>
+                                    </a>
+                                </td>
+                                `
+                            : '';
+
+                    const printHtml = `
+                              <td>
+                                <a target="_blank" href="@Url.Action("Print", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}" title="Друк">
+                                  <i class="fa-solid fa-print fa-lg"></i>
+                                </a>
+                              </td>
+                            `;
                     
                     tr.innerHTML = `
                         <th scope="row">${escapeHtml(item.index)}</th>
@@ -477,6 +492,7 @@
                                 <i class="fa-solid fa-eye fa-lg"></i>
                             </a>
                         </td>
+                        ${printHtml}
                         ${editHtml}
                         <td>${actionsHtml}</td>
                     `;

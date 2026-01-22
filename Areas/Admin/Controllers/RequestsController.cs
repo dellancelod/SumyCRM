@@ -353,5 +353,20 @@ namespace SumyCRM.Areas.Admin.Controllers
                 totalPages = (int)Math.Ceiling(total / (double)pageSize)
             });
         }
+        [HttpGet]
+        public async Task<IActionResult> Print(Guid id)
+        {
+            var model = await BaseQuery()
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (model == null) return NotFound();
+
+            // (необов’язково) доступ по facility як в інших місцях
+            var q = ApplyFacilityAccessFilter(BaseQuery().Where(x => x.Id == id));
+            var allowed = await q.AnyAsync();
+            if (!allowed) return Forbid();
+
+            return View("Print", model); // Views/Admin/Requests/Print.cshtml
+        }
     }
 }
