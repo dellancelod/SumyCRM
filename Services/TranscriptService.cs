@@ -57,7 +57,7 @@
             var outPath = Path.ChangeExtension(inputPath, ".whisper.wav");
 
             // 16kHz, mono, signed 16-bit PCM
-            var args = $"-y -i \"{inputPath}\" -ac 1 -ar 16000 -c:a pcm_s16le \"{outPath}\"";
+            var args = $"-y -i \"{inputPath}\" -ac 1 -ar 16000 -af \"highpass=f=80,lowpass=f=8000,afftdn\" -c:a pcm_s16le \"{outPath}\"";
 
             var psi = new System.Diagnostics.ProcessStartInfo
             {
