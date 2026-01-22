@@ -155,8 +155,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 return View(new Request
                 {
-                    Id = Guid.Empty,
-                    DateAdded = DateTime.UtcNow,
                     IsCompleted = false
                 });
             }
@@ -180,9 +178,6 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             if (model.Id == Guid.Empty)
             {
-                // IMPORTANT: create
-                model.Id = Guid.NewGuid();
-                model.DateAdded = DateTime.UtcNow;
                 model.IsCompleted = false;
 
                 await dataManager.Requests.SaveRequestAsync(model);
