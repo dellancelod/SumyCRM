@@ -117,7 +117,7 @@
                 <tbody id="requestsTableBody">
                     @foreach (var item in Model.PageItems)
                     {
-                        <tr>
+                        <tr class="@(item.Facility == null || item.Facility.Name == "Немає" ? "row-no-facility" : "")">
                             <th scope="row">@itemIndex</th>
                             <td>
                                 <label>
@@ -406,6 +406,10 @@
 
                 items.forEach(item => {
                     const tr = document.createElement('tr');
+
+
+                    const isNoFacility = !item.facility || item.facility.trim() === '' || item.facility.trim() === 'Немає';
+                    tr.className = isNoFacility ? 'row-no-facility' : '';
 
                     const audioParts = [];
                     if (item.nameAudio) {

@@ -926,6 +926,11 @@ h6, .h6 {
 .compact-table tr {
     height: 28px;
 }
+
+.row-no-facility {
+    background-color: #f8d7da !important; /* bootstrap danger-ish */
+}
+
 /*
 The MIT License (MIT)
 
