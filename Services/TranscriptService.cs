@@ -52,5 +52,33 @@
 
             return trimmedOriginal;
         }
+        public static async Task<string> ConvertToWhisperWavAsync(string inputPath, CancellationToken ct)
+        {
+            var outPath = Path.ChangeExtension(inputPath, ".whisper.wav");
+
+            // 16kHz, mono, signed 16-bit PCM
+            var args = $"-y -i \"{inputPath}\" -ac 1 -ar 16000 -c:a pcm_s16le \"{outPath}\"";
+
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "ffmpeg",
+                Arguments = args,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var p = System.Diagnostics.Process.Start(psi)!;
+            await p.WaitForExitAsync(ct);
+
+            if (p.ExitCode != 0)
+            {
+                var err = await p.StandardError.ReadToEndAsync();
+                throw new Exception("ffmpeg convert failed: " + err);
+            }
+
+            return outPath;
+        }
     }
 }

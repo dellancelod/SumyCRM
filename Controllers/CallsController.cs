@@ -81,16 +81,21 @@ namespace SumyCRM.Controllers
                 Language = "uk",
 
                 // можно не задавать, по умолчанию вернётся просто текст
-                ResponseFormat = AudioTranscriptionFormat.Text
+                ResponseFormat = AudioTranscriptionFormat.Text,
+                Prompt = "Це звернення до міських служб. Ім'я та прізвище, адреса в місті Суми. Українська мова."
             };
+            var whisperTextPath = await ConvertToWhisperWavAsync(fullPathText, HttpContext.RequestAborted);
+            var whisperNamePath = await ConvertToWhisperWavAsync(fullPathName, HttpContext.RequestAborted);
+            var whisperAddrPath = await ConvertToWhisperWavAsync(fullPathAddress, HttpContext.RequestAborted);
+
             AudioTranscription transcriptionText =
-                     await audioClient.TranscribeAudioAsync(fullPathText, options);
+                     await audioClient.TranscribeAudioAsync(whisperTextPath, options);
 
             AudioTranscription transcriptionName =
-                     await audioClient.TranscribeAudioAsync(fullPathName, options);
+                     await audioClient.TranscribeAudioAsync(whisperNamePath, options);
 
             AudioTranscription transcriptionAddress =
-                     await audioClient.TranscribeAudioAsync(fullPathAddress, options);
+                     await audioClient.TranscribeAudioAsync(whisperAddrPath, options);
 
             string transcriptText = CleanTranscript(transcriptionText.Text);
             string transcriptName = CleanTranscript(transcriptionName.Text);
