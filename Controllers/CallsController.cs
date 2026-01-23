@@ -5,6 +5,7 @@ using SumyCRM.Data;
 using SumyCRM.Models;
 using static SumyCRM.Services.TranscriptService;
 using static SumyCRM.Services.CategoryConverter;
+using Microsoft.EntityFrameworkCore;
 
 namespace SumyCRM.Controllers
 {
@@ -163,8 +164,8 @@ namespace SumyCRM.Controllers
         [AllowAnonymous]
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> CheckWaterLeak(
-    [FromForm] IFormFile audioAddress,
-    [FromHeader(Name = "X-API-KEY")] string? apiKey)
+            [FromForm] IFormFile audioAddress,
+            [FromHeader(Name = "X-API-KEY")] string? apiKey)
         {
             string secret = _config["UploadSecret"];
             if (apiKey != secret) return Unauthorized("Invalid API Key");
@@ -193,7 +194,7 @@ namespace SumyCRM.Controllers
             };
 
             var whisperAddrPath = await ConvertToWhisperWavAsync(tmpPath, HttpContext.RequestAborted);
-            var tr = await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
+            AudioTranscription tr = await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
             var addr = CleanTranscript(tr.Text);
 
             // match against DB
