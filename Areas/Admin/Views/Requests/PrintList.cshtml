@@ -1,0 +1,166 @@
+﻿@model List<SumyCRM.Models.Request>
+@{
+    Layout = null;
+
+    string term = (ViewBag.Term as string) ?? "";
+    string dateFrom = (ViewBag.DateFrom as string) ?? "";
+    string dateTo = (ViewBag.DateTo as string) ?? "";
+    bool areCompleted = (bool)(ViewBag.AreCompleted ?? false);
+}
+
+<!doctype html>
+<html lang="uk">
+<head>
+    <meta charset="utf-8" />
+    <title>Друк звернень</title>
+    <style>
+        @@page { 
+            margin: 12mm; 
+        }
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+            color: #000; 
+        }
+        .no-print { 
+            margin-bottom: 10px; 
+        }
+        @@media print { 
+            .no-print { 
+                display: none !important; 
+            } 
+        }
+
+        h2 { 
+            margin: 0 0 6px 0; 
+        }
+        .meta { 
+            margin: 0 0 12px 0; 
+            font-size: 11px; 
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+        }
+        th, td { 
+            border: 1px solid #000; 
+            padding: 4px; 
+            vertical-align: top; 
+        }
+        th { 
+            background: #f2f2f2; 
+        }
+        .wrap { 
+            white-space: pre-wrap; 
+        }
+
+        .header-block {
+            text-align: center;
+            margin-bottom: 14px;
+            margin-top: 40px;
+        }
+
+        .header-title {
+            font-weight: bold;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .edit-line {
+            display: inline-block;
+            min-width: 260px;
+            border-bottom: 1px solid #000;
+            padding: 0 6px;
+        }
+
+
+        .corner-badge {
+            position: fixed;
+            top: 5mm;
+            right: 5mm;
+            border: 1.5px solid #000;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            background: #fff;
+            z-index: 1000;
+        }
+
+        @@media print {
+            .corner-badge
+
+        {
+            font-size: 10.5px;
+            padding: 5px 5px;
+        }
+
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button onclick="window.print()">🖨️ Друкувати</button>
+        <button onclick="window.close()">✖ Закрити</button>
+    </div>
+    <div class="header-block mt-3">
+        <div class="header-title ">
+            ІНФОРМАЦІЯ<br />
+            стосовно скарг мешканців, що надійшли до відділу
+            «Інформаційний центр» на
+            <span class="edit-line" contenteditable="true"></span>
+        </div>
+    </div>
+
+    <div class="meta">
+        @if (!string.IsNullOrWhiteSpace(term))
+        {
+            <div><b>Пошук:</b> @term</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(dateFrom) || !string.IsNullOrWhiteSpace(dateTo))
+        {
+            <div><b>Період:</b> @dateFrom — @dateTo</div>
+        }
+        <div><b>Кількість:</b> @Model.Count</div>
+        <div><b>Дата:</b> @DateTime.Now.ToString("dd.MM.yyyy HH:mm")</div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width:36px;">№</th>
+                <th style="width:70px;">Номер</th>
+                <th style="width:120px;">Дата</th>
+                <th style="width:180px;">Адреса</th>
+                <th style="width:140px;">ПІБ</th>
+                <th style="width:110px;">Телефон</th>
+                <th>Зміст скарги</th>
+                <th style="width:110px;">Примітки</th>
+            </tr>
+        </thead>
+        <tbody>
+        @{
+            var idx = 1;
+            foreach (var r in Model)
+            {
+                <tr>
+                    <td>@idx</td>
+                    <td>@r.RequestNumber</td>
+                    <td>@r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>@(r.Address ?? "")</td>
+                    <td>@(r.Name ?? "")</td>
+                    <td>@(r.Caller ?? "")</td>
+                    <td class="wrap">@((r.Text ?? "").Trim())</td>
+                    <td></td>
+                </tr>
+                idx++;
+            }
+        }
+        </tbody>
+    </table>
+</body>
+<div class="corner-badge">
+    Інформаційний центр
+</div>
+</html>

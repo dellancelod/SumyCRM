@@ -37,6 +37,11 @@
             </a>
             <ul class="collapse list-unstyled" id="ordersSubmenu">
                 <li>
+                    <a href="@Url.Action("All", "Requests", new { area = "Admin" })">
+                        Усі звернення
+                    </a>
+                </li>
+                <li>
                     <a href="@Url.Action("Index", "Requests", new {area="Admin", page = 1, completed = false })">Активні</a>
                 </li>
                 <li>

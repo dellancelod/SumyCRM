@@ -48,6 +48,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             IQueryable<Request> query,
             bool? isCompleted,
             Guid? categoryId,
+            Guid? facilityId,
             DateTime? dateFrom,
             DateTime? dateTo)
         {
@@ -62,6 +63,9 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             if (dateTo.HasValue)
                 query = query.Where(r => r.DateAdded < dateTo.Value.Date.AddDays(1)); // inclusive day
+
+            if (facilityId.HasValue && facilityId.Value != Guid.Empty)
+                query = query.Where(r => r.FacilityId == facilityId.Value);
 
             return query;
         }
@@ -85,15 +89,32 @@ namespace SumyCRM.Areas.Admin.Controllers
             );
         }
 
-        private async Task FillIndexViewBags(Guid? categoryId, DateTime? dateFrom, DateTime? dateTo, bool completed)
+        private async Task FillIndexViewBags(Guid? categoryId, Guid? facilityId, DateTime? dateFrom, DateTime? dateTo, bool completed)
         {
             ViewBag.AreCompleted = completed;
             ViewBag.SelectedCategoryId = categoryId;
+            ViewBag.SelectedFacilityId = facilityId; // ✅
             ViewBag.DateFrom = dateFrom?.ToString("yyyy-MM-dd");
             ViewBag.DateTo = dateTo?.ToString("yyyy-MM-dd");
 
             ViewBag.Categories = await dataManager.Categories.GetCategories()
                 .OrderBy(c => c.Title)
+                .ToListAsync();
+
+            // ✅ Facilities list (with access filter for non-admin)
+            var facilitiesQuery = dataManager.Facilities.GetFacilities().AsQueryable();
+
+            if (!User.IsInRole("admin"))
+            {
+                var userId = GetUserId();
+                facilitiesQuery = facilitiesQuery.Where(f =>
+                    dataManager.UserFacilities.GetUserFacilities()
+                        .Any(uf => uf.UserId == userId && uf.FacilityId == f.Id)
+                );
+            }
+
+            ViewBag.Facilities = await facilitiesQuery
+                .OrderBy(f => f.Name)
                 .ToListAsync();
         }
 
@@ -124,6 +145,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             int page = 1,
             bool completed = false,
             Guid? categoryId = null,
+            Guid? facilityId = null,
             DateTime? dateFrom = null,
             DateTime? dateTo = null)
         {
@@ -131,7 +153,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
-            query = ApplyFilters(query, completed, categoryId, dateFrom, dateTo);
+            query = ApplyFilters(query, completed, categoryId, facilityId, dateFrom, dateTo);
 
             var total = await query.CountAsync();
 
@@ -141,7 +163,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .Take(pageSize)
                 .ToListAsync();
 
-            await FillIndexViewBags(categoryId, dateFrom, dateTo, completed);
+            await FillIndexViewBags(categoryId, facilityId, dateFrom, dateTo, completed);
 
             var model = new PaginationViewModel<Request>
             {
@@ -222,9 +244,8 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return View(model);
         }
-
         [HttpPost]
-        public async Task<IActionResult> CompleteRequest(Guid id)
+        public async Task<IActionResult> CompleteRequest(Guid id, string? returnUrl = null)
         {
             var request = await dataManager.Requests.GetRequestByIdAsync(id);
             if (request == null) return NotFound();
@@ -235,11 +256,14 @@ namespace SumyCRM.Areas.Admin.Controllers
             TempData["ToastMessage"] = $"Звернення №{request.RequestNumber} позначено як виконане.";
             TempData["ToastType"] = "success";
 
-            return RedirectToAction(nameof(Index), new { completed = false });
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
+
+            return RedirectToAction(nameof(Index), new { completed = false }); // fallback
         }
 
         [HttpPost]
-        public async Task<IActionResult> Delete(Guid id)
+        public async Task<IActionResult> Delete(Guid id, string? returnUrl = null)
         {
             if (!User.IsInRole("admin"))
                 return Forbid();
@@ -260,7 +284,10 @@ namespace SumyCRM.Areas.Admin.Controllers
                 TempData["ToastType"] = "warning";
             }
 
-            return RedirectToAction(nameof(Index), new { page = 1, completed = true });
+            if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
+                return Redirect(returnUrl);
+
+            return RedirectToAction(nameof(Index), new { page = 1, completed = true }); // fallback
         }
 
         // used by your "counter" widget
@@ -281,7 +308,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         {
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
-            query = ApplyFilters(query, completed, null, null, null);
+            query = ApplyFilters(query, completed, null, null, null, null);
             query = ApplySearch(query, term);
 
             var list = await query
@@ -310,12 +337,80 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return Json(result);
         }
+        [HttpGet]
+        public async Task<IActionResult> All(
+            Guid? categoryId = null,
+            Guid? facilityId = null,
+            DateTime? dateFrom = null,
+            DateTime? dateTo = null)
+        {
+            // Completed toggle is not needed here, but we keep ViewBags consistent
+            await FillIndexViewBags(categoryId, facilityId, dateFrom, dateTo, completed: false);
+
+            // we don’t need initial items because page loads via AJAX
+            var model = new PaginationViewModel<Request>
+            {
+                PageItems = new List<Request>(),
+                CurrentPage = 1,
+                TotalPages = 1,
+                PageSize = 999999
+            };
+
+            return View("All", model); // Views/Admin/Requests/All.cshtml
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetAllList(
+            string? term,
+            Guid? categoryId,
+            Guid? facilityId,
+            string? dateFrom,
+            string? dateTo)
+        {
+            var query = BaseQuery();
+            query = ApplyFacilityAccessFilter(query);
+
+            DateTime? df = null, dt = null;
+            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
+            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+
+            // IMPORTANT: no isCompleted filter (we want both)
+            query = ApplyFilters(query, isCompleted: null, categoryId, facilityId, df, dt);
+            query = ApplySearch(query, term);
+
+            var list = await query
+                .OrderByDescending(r => r.DateAdded)
+                .ToListAsync();
+
+            var items = list.Select((r, idx) => new
+            {
+                index = idx + 1,
+                id = r.Id,
+                requestNumber = r.RequestNumber,
+                name = r.Name,
+                caller = r.Caller,
+                facility = r.Facility != null ? r.Facility.Name : "",
+                category = r.Category?.Title,
+                subcategory = r.Subcategory,
+                address = r.Address,
+                text = r.Text,
+                audio = r.AudioFilePath,
+                nameAudio = r.NameAudioFilePath,
+                addressAudio = r.AddressAudioFilePath,
+                date = r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
+                isCompleted = r.IsCompleted
+            });
+
+            return Json(new { items });
+        }
+
 
         [HttpGet]
         public async Task<IActionResult> GetList(
             string? term,
             bool? isCompleted,
             Guid? categoryId,
+            Guid? facilityId,
             string? dateFrom,
             string? dateTo,
             int page = 1,
@@ -328,7 +423,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
             if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
 
-            query = ApplyFilters(query, isCompleted, categoryId, df, dt);
+            query = ApplyFilters(query, isCompleted, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);
 
             var total = await query.CountAsync();
@@ -380,6 +475,69 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!allowed) return Forbid();
 
             return View("Print", model); // Views/Admin/Requests/Print.cshtml
+        }
+        [HttpGet]
+        public async Task<IActionResult> PrintList(
+            string? term,
+            bool? isCompleted,
+            Guid? categoryId,
+            Guid? facilityId,
+            string? dateFrom,
+            string? dateTo)
+        {
+            var query = BaseQuery();
+            query = ApplyFacilityAccessFilter(query);
+
+            DateTime? df = null, dt = null;
+            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
+            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+
+            query = ApplyFilters(query, isCompleted, categoryId, facilityId, df, dt);
+            query = ApplySearch(query, term);
+
+            // IMPORTANT: order for printing
+            var list = await query
+                .OrderByDescending(r => r.DateAdded)
+                .ToListAsync();
+
+            // pass “header info” to the print view
+            ViewBag.AreCompleted = isCompleted ?? false;
+            ViewBag.Term = term ?? "";
+            ViewBag.SelectedCategoryId = categoryId;
+            ViewBag.SelectedFacilityId = facilityId;
+            ViewBag.DateFrom = dateFrom;
+            ViewBag.DateTo = dateTo;
+
+            return View("PrintList", list); // create Views/Admin/Requests/PrintList.cshtml
+        }
+        [HttpGet]
+        public async Task<IActionResult> PrintAllList(
+            string? term,
+            Guid? categoryId,
+            Guid? facilityId,
+            string? dateFrom,
+            string? dateTo)
+        {
+            var query = BaseQuery();
+            query = ApplyFacilityAccessFilter(query);
+
+            DateTime? df = null, dt = null;
+            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
+            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+
+            // BOTH statuses => isCompleted = null
+            query = ApplyFilters(query, isCompleted: null, categoryId, facilityId, df, dt);
+            query = ApplySearch(query, term);
+
+            var list = await query
+                .OrderByDescending(r => r.DateAdded)
+                .ToListAsync();
+
+            ViewBag.Term = term ?? "";
+            ViewBag.DateFrom = dateFrom ?? "";
+            ViewBag.DateTo = dateTo ?? "";
+
+            return View("PrintAllList", list); // create view
         }
     }
 }

@@ -1,25 +1,21 @@
 ﻿@model SumyCRM.Models.Request
 @{
-    Layout = null; // чистий аркуш
+    Layout = null;
 
     var dt = Model.DateAdded.ToLocalTime();
-    int year = dt.Year;               
+    int year = dt.Year;
     string dateStr = dt.ToString("dd.MM.yyyy");
     string timeStr = dt.ToString("HH:mm");
 
-    // ПІБ: у тебе поле Name, тому ставимо його сюди
-    string pib = string.IsNullOrWhiteSpace(Model.Name) ? "__________________________________________" : Model.Name;
+    string pib = string.IsNullOrWhiteSpace(Model.Name) ? "" : Model.Name.Trim();
+    string address = string.IsNullOrWhiteSpace(Model.Address) ? "" : Model.Address.Trim();
+    string phone = string.IsNullOrWhiteSpace(Model.Caller) ? "" : Model.Caller.Trim();
 
-    string address = string.IsNullOrWhiteSpace(Model.Address) ? "_____________________________________________________" : Model.Address;
-    string phone = string.IsNullOrWhiteSpace(Model.Caller) ? "_____________________________________________________" : Model.Caller;
+    string executor = (Model.Facility == null || string.IsNullOrWhiteSpace(Model.Facility.Name))
+        ? ""
+        : Model.Facility.Name.Trim();
 
-    // Виконавець (можеш підставляти User.Identity.Name або окреме поле)
-    string executor = string.IsNullOrWhiteSpace(Model.Facility.Name) ? "___________________________________________________________" : Model.Facility.Name;
-
-    // Кому передано
-    string forwardedTo = "__________________________________________________________";
-
-    // Хід виконання / відгук — поки пусті поля
+    var text = string.IsNullOrWhiteSpace(Model.Text) ? "" : Model.Text.Trim();
 }
 <!doctype html>
 <html lang="uk">
@@ -27,7 +23,6 @@
     <meta charset="utf-8" />
     <title>Лист звернення №@Model.RequestNumber</title>
     <style>
-        /* IMPORTANT for Razor: @@media / @@page */
         @@page {
             margin: 15mm;
         }
@@ -36,6 +31,8 @@
             font-family: "Times New Roman", serif;
             font-size: 14pt;
             color: #000;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         .no-print {
@@ -62,10 +59,6 @@
             gap: 12px;
         }
 
-        .mono {
-            white-space: pre-wrap;
-        }
-
         .mt-12 {
             margin-top: 12px;
         }
@@ -82,24 +75,6 @@
             margin-top: 32px;
         }
 
-        .small-line {
-            border-bottom: 1px solid #000;
-            display: inline-block;
-            min-width: 50px;
-        }
-        .line {
-            border-bottom: 1px solid #000;
-            display: inline-block;
-            min-width: 260px;
-        }
-
-        .wide-line {
-            border-bottom: 1px solid #000;
-            display: inline-block;
-            width: 100%;
-            height: 20px;
-        }
-
         .field-label {
             font-weight: 700;
         }
@@ -108,17 +83,71 @@
             font-size: 12pt;
         }
 
-        .block-lines .wide-line {
-            margin-top: 6px;
+        /* ===== editable lines ===== */
+        .line-input {
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid #000;
+            outline: none;
+            font: inherit;
+            background: transparent;
+            padding: 2px 2px 0 2px;
+            min-height: 20px;
         }
 
+            .line-input.datew {
+                display: inline-block;
+                width: 20px;
+                vertical-align: baseline;
+            }
+
+            .line-input.smallw {
+                display: inline-block;
+                width: 90px;
+                vertical-align: baseline;
+            }
+
+            .line-input.midw {
+                display: inline-block;
+                width: 260px;
+                vertical-align: baseline;
+            }
+
+        /* Multi-line “lined paper” textarea */
+        .line-area {
+            width: 100%;
+            font: inherit;
+            background: transparent;
+            outline: none;
+            border: none;
+            /* draw lines */
+            line-height: 28px;
+            padding: 4px 2px;
+            background-image: linear-gradient(to bottom, transparent 27px, #000 27px, #000 28px);
+            background-size: 100% 28px;
+            background-repeat: repeat-y;
+            /* keep text inside */
+            resize: none;
+            overflow: hidden;
+            /* IMPORTANT: keep lines visible when printing */
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        /* Signature blocks */
         .sig {
             width: 48%;
         }
 
-            .sig .wide-line {
-                height: 18px;
-            }
+        .sigline {
+            width: 100%;
+            border: none;
+            border-bottom: 1px solid #000;
+            outline: none;
+            font: inherit;
+            background: transparent;
+            height: 20px;
+        }
     </style>
 </head>
 <body>
@@ -136,93 +165,77 @@
     <div class="mt-18 row">
         <div>
             <span class="field-label">№</span>
-            <span class="small-line">@Model.RequestNumber</span>
+            <input class="line-input smallw" value="@Model.RequestNumber" />
         </div>
         <div>
             <span class="field-label">дата</span>
-            <span class="small-line">@dateStr</span>
+            <input class="line-input smallw" value="@dateStr" />
             <span class="small">р.</span>
         </div>
     </div>
 
     <div class="mt-12">
         <span class="field-label">Час</span>
-        <span class="small-line">@timeStr</span>
+        <input class="line-input smallw" value="@timeStr" />
         <span class="small">год.</span>
     </div>
 
     <div class="mt-18">
         <span class="field-label">Прізвище, ім'я, по батькові</span><br />
-        <span class="wide-line">@pib</span>
+        <input class="line-input" value="@pib" placeholder="" />
     </div>
 
     <div class="mt-12">
         <span class="field-label">Адреса замовника</span><br />
-        <span class="wide-line">@address</span>
+        <input class="line-input" value="@address" />
     </div>
 
     <div class="mt-12">
-        <span class="field-label">Телефон <span class="line">@phone</span></span><br />
-        
+        <span class="field-label">Телефон</span>
+        <input class="line-input midw" value="@phone" />
     </div>
 
     <div class="mt-12">
         <span class="field-label">Виконавець</span><br />
-        <span class="wide-line">@executor</span>
+        <input class="line-input" value="@executor" />
     </div>
 
     <div class="mt-18">
         <div class="field-label">Зміст пропозицій, заявки, скарги</div>
-        <div class="block-lines">
-            @{
-                // Текст звернення — в перший рядок, якщо є
-                var text = string.IsNullOrWhiteSpace(Model.Text) ? "" : Model.Text.Trim();
-            }
-            <div class="wide-line">@text</div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-        </div>
+        <!-- 5 lines worth of space -->
+        <textarea class="line-area" rows="5">@text</textarea>
     </div>
 
-    <div class="mt-18">
+    <div class="mt-12">
         <span class="field-label">Кому передано для виконання</span><br />
-        <span class="wide-line"></span>
-        <div class="wide-line"></div>
-        <div class="wide-line"></div>
-        <div class="wide-line"></div>
+        <textarea class="line-area" rows="2"></textarea>
     </div>
 
-    <div class="mt-18">
+    <div class="mt-12">
         <div class="field-label">Інформація про хід виконання і завершення роботи</div>
-        <div class="block-lines">
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-        </div>
+        <textarea class="line-area" rows="3"></textarea>
     </div>
 
-    <div class="mt-18">
+    <div class="mt-12">
         <span class="field-label">Замовнику роз'яснено, повідомлено</span>
-        «__» __ @year р.
+    </div>
+
+    <div class="mt-12">
+        «<input class="line-input datew" value="" />»
+        <input class="line-input smallw" value="" />
+        @year р.
     </div>
 
     <div class="mt-12">
         <span class="field-label">Його відгук</span>
-        <div class="block-lines">
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-            <div class="wide-line"></div>
-        </div>
+        <textarea class="line-area" rows="3"></textarea>
     </div>
 
     <div class="mt-18">
         <span class="field-label">Дата виконання</span>
-        «___» _______ @year р.
+        «<input class="line-input datew" value="" />»
+        <input class="line-input smallw" value="" />
+        @year р.
     </div>
 
     <div class="mt-24">
@@ -230,11 +243,11 @@
 
         <div class="mt-18 row">
             <div class="sig center">
-                <div class="wide-line"></div>
+                <input class="sigline" />
                 <div class="small">(підпис)</div>
             </div>
             <div class="sig center">
-                <div class="wide-line"></div>
+                <input class="sigline" />
                 <div class="small">(П.І.Б.)</div>
             </div>
         </div>

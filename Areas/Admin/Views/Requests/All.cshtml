@@ -1,0 +1,440 @@
+﻿@using SumyCRM.Areas.Admin.Models
+@model PaginationViewModel<Request>
+@{
+    var categories = ViewBag.Categories as List<Category> ?? new List<Category>();
+    Guid? selectedCategoryId = ViewBag.SelectedCategoryId as Guid?;
+
+    var facilities = ViewBag.Facilities as List<Facility> ?? new List<Facility>();
+    Guid? selectedFacilityId = ViewBag.SelectedFacilityId as Guid?;
+
+    string dateFrom = ViewBag.DateFrom as string;
+    string dateTo = ViewBag.DateTo as string;
+}
+
+<style>
+    .row-completed {
+        background: #efefef !important;
+        color: #555;
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-column flex-md-row gap-2">
+    <h2 class="mb-2 mb-md-0">Всі звернення</h2>
+
+    <div class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center gap-2 ms-md-auto">
+
+        @if (User.IsInRole("admin"))
+        {
+            <a asp-area="Admin"
+               asp-controller="Requests"
+               asp-action="Edit"
+               class="btn btn-success btn-sm text-nowrap">
+                <i class="fa-solid fa-plus"></i>
+                Зареєструвати звернення
+            </a>
+        }
+
+        <button type="button" class="btn btn-outline-dark btn-sm text-nowrap" id="btnPrintList">
+            <i class="fa-solid fa-print"></i> Друк списку
+        </button>
+
+        <div class="input-group input-group-sm w-100 w-md-auto" style="max-width:250px;">
+            <span class="input-group-text bg-white">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" id="requestSearch" class="form-control" placeholder="Пошук звернення..." />
+        </div>
+    </div>
+</div>
+
+<form id="filtersForm" method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-md-3">
+        <label class="form-label form-label-sm">Категорія</label>
+        <select name="categoryId" class="form-select form-select-sm">
+            <option value="">Всі категорії</option>
+            @foreach (var cat in categories)
+            {
+                <option value="@cat.Id" selected="@(selectedCategoryId.HasValue && selectedCategoryId.Value == cat.Id)">
+                    @cat.Title
+                </option>
+            }
+        </select>
+    </div>
+
+    <div class="col-md-3">
+        <label class="form-label form-label-sm">Установа</label>
+        <select name="facilityId" class="form-select form-select-sm">
+            <option value="">Всі установи</option>
+            @foreach (var f in facilities)
+            {
+                <option value="@f.Id" selected="@(selectedFacilityId.HasValue && selectedFacilityId.Value == f.Id)">
+                    @f.Name
+                </option>
+            }
+        </select>
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label form-label-sm">Від дати</label>
+        <input type="date" name="dateFrom" value="@dateFrom" class="form-control form-control-sm" />
+    </div>
+
+    <div class="col-md-2">
+        <label class="form-label form-label-sm">До дати</label>
+        <input type="date" name="dateTo" value="@dateTo" class="form-control form-control-sm" />
+    </div>
+
+    <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary btn-sm w-100">Застосувати</button>
+        <a class="btn btn-outline-secondary btn-sm w-100"
+           href="@Url.Action("All","Requests",new{area="Admin", categoryId=(Guid?)null, facilityId=(Guid?)null, dateFrom=(string?)null, dateTo=(string?)null})">
+            Скинути
+        </a>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-hover table-sm align-middle compact-table">
+        <thead>
+            <tr>
+                <th scope="col">№</th>
+                <th scope="col">Номер звернення</th>
+                <th scope="col">Установа</th>
+                <th scope="col">Ім'я</th>
+                <th scope="col">Номер телефону</th>
+                <th scope="col">Адреса</th>
+                <th scope="col">Категорія</th>
+                <th scope="col">Підкатегорія</th>
+                <th scope="col">Текст</th>
+                <th scope="col">Аудіо</th>
+                <th scope="col">Дата</th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+                <th scope="col"></th>
+            </tr>
+        </thead>
+        <tbody id="requestsTableBody"></tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmationLabel">Підтвердження видалення</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Ви впевнені, що хочете видалити цю заявку?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Видалити</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100">
+    <div id="opToast" class="toast text-bg-success" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-body d-flex align-items-center gap-2" id="opToastBody">
+            <span id="opToastIcon" class="fs-5">✅</span>
+            <span id="opToastText" class="flex-grow-1"></span>
+            <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="toast"></button>
+        </div>
+
+        <!-- progress bar -->
+        <div class="progress" style="height:4px;">
+            <div id="opToastProgress" class="progress-bar" role="progressbar"></div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script>
+        (function () {
+          const message = @Html.Raw(
+                                    System.Text.Json.JsonSerializer.Serialize(
+                                            TempData["ToastMessage"]?.ToString() ?? ""
+                                    )
+                            );
+      const type = '@(TempData["ToastType"]?.ToString() ?? "success")';
+
+          if (!message) return;
+
+          const toastEl = document.getElementById('opToast');
+          const toastText = document.getElementById('opToastText');
+          const toastIcon = document.getElementById('opToastIcon');
+          const progressEl = document.getElementById('opToastProgress');
+          if (!toastEl || !toastText || !toastIcon || !progressEl) return;
+
+          // styles by type
+          toastEl.classList.remove('text-bg-success','text-bg-danger','text-bg-warning','text-bg-info');
+          toastEl.classList.add(`text-bg-${type}`);
+
+          // icon by type
+          const iconMap = {
+            success: '✅',
+            danger: '❌',
+            warning: '⚠️',
+            info: 'ℹ️'
+          };
+          toastIcon.textContent = iconMap[type] || '✅';
+
+          toastText.textContent = message;
+
+          const delay = 2500; // ms
+
+          const toast = new bootstrap.Toast(toastEl, { autohide: true, delay });
+
+          // reset + animate progress
+        function startProgress() {
+          progressEl.style.transition = 'none';
+          progressEl.style.width = '100%';
+
+          // маленька пауза, щоб браузер "побачив" 100% перед анімацією
+          setTimeout(() => {
+            progressEl.style.transition = `width ${delay}ms linear`;
+            progressEl.style.width = '0%';
+          }, 30);
+        }
+
+          // when shown -> run progress
+          toastEl.addEventListener('shown.bs.toast', startProgress);
+
+          // when hidden -> cleanup for next time
+          toastEl.addEventListener('hidden.bs.toast', () => {
+            progressEl.style.transition = 'none';
+            progressEl.style.width = '0%';
+          });
+
+          toast.show();
+        })();
+    </script>
+    <script>
+        let formToSubmit = null;
+
+        window.confirmDelete = function (id) {
+            formToSubmit = document.getElementById(`form-${id}`);
+            const el = document.getElementById('deleteConfirmationModal');
+            if (!el || !formToSubmit) return;
+
+            const modal = new bootstrap.Modal(el);
+            modal.show();
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('confirmDeleteBtn');
+            if (!btn) return;
+
+            btn.addEventListener('click', () => {
+                if (formToSubmit) formToSubmit.submit();
+            });
+        });
+    </script>
+    <script>
+        (function(){
+            const btn = document.getElementById('btnPrintList');
+            if (!btn) return;
+
+            function getFiltersForPrint() {
+                const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
+                const facilityId = document.querySelector('select[name="facilityId"]')?.value || '';
+                const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
+                const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
+                const term = (document.getElementById('requestSearch')?.value || '').trim();
+                return { categoryId, facilityId, dateFrom, dateTo, term };
+            }
+
+            btn.addEventListener('click', () => {
+                const f = getFiltersForPrint();
+                const base = '@Url.Action("PrintAllList", "Requests", new { area = "Admin" })';
+                const p = new URLSearchParams();
+
+                if (f.categoryId) p.set('categoryId', f.categoryId);
+                if (f.facilityId) p.set('facilityId', f.facilityId);
+                if (f.dateFrom) p.set('dateFrom', f.dateFrom);
+                if (f.dateTo) p.set('dateTo', f.dateTo);
+                if (f.term) p.set('term', f.term);
+
+                window.open(base + '?' + p.toString(), '_blank');
+            });
+        })();
+    </script>
+    <script>
+    (function(){
+        const searchInput = document.getElementById('requestSearch');
+        const tableBody = document.getElementById('requestsTableBody');
+        const filtersForm = document.getElementById('filtersForm');
+
+        const isAdmin = @User.IsInRole("admin").ToString().ToLower();
+        let typingTimer = null;
+        let lastController = null;
+
+        function getFilters() {
+            const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
+            const facilityId = document.querySelector('select[name="facilityId"]')?.value || '';
+            const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
+            const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
+            const term = (searchInput?.value || '').trim();
+            return { categoryId, facilityId, dateFrom, dateTo, term };
+        }
+
+        function buildUrl() {
+            const f = getFilters();
+            const base = '@Url.Action("GetAllList", "Requests", new { area = "Admin" })';
+            const p = new URLSearchParams();
+
+            if (f.categoryId) p.set('categoryId', f.categoryId);
+            if (f.facilityId) p.set('facilityId', f.facilityId);
+            if (f.dateFrom) p.set('dateFrom', f.dateFrom);
+            if (f.dateTo) p.set('dateTo', f.dateTo);
+            if (f.term) p.set('term', f.term);
+
+            return base + '?' + p.toString();
+        }
+
+        function escapeHtml(s) {
+            if (s === null || s === undefined) return '';
+            return String(s)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+        }
+
+        function renderTable(items) {
+            tableBody.innerHTML = '';
+
+            if (!items || items.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="15" class="text-center text-muted">Нічого не знайдено</td></tr>`;
+                return;
+            }
+
+            // Active first, then completed
+            const active = items.filter(x => !x.isCompleted);
+            const done = items.filter(x => x.isCompleted);
+
+            const ordered = active.concat(done);
+
+            ordered.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+
+                const isNoFacility = !item.facility || item.facility.trim() === '' || item.facility.trim() === 'Немає';
+                if (isNoFacility) tr.classList.add('row-no-facility');
+                if (item.isCompleted) tr.classList.add('row-completed');
+
+                const audioParts = [];
+                if (item.nameAudio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.nameAudio)}"></audio></span></label>`);
+                if (item.addressAudio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.addressAudio)}"></audio></span></label>`);
+                if (item.audio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.audio)}"></audio></span></label>`);
+                const audioHtml = audioParts.join('');
+
+                let actionsHtml = '';
+                if (item.isCompleted) {
+                    if (isAdmin) {
+                        actionsHtml = `
+                            <form style="display:inline-block;" id="form-${escapeHtml(item.id)}"
+                                  action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
+                                  method="post" class="d-inline">
+                                <input type="hidden" name="id" value="${escapeHtml(item.id)}" />
+                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                <button type="button" class="btn btn-sm btn-danger"
+                                        onclick="confirmDelete('${escapeHtml(item.id)}')">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                            </form>`;
+                    }
+                } else {
+                    actionsHtml = `
+                        <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
+                              method="post">
+                            <input type="hidden" name="id" value="${escapeHtml(item.id)}" />
+                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                <button type="submit" class="btn btn-success">
+                                <i class="fa-solid fa-square-check fa-lg"></i>
+                            </button>
+                        </form>`;
+                }
+
+                const editHtml = (isAdmin && item.isCompleted)
+                    ? `<td><a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
+                            <i class="fa-regular fa-pen-to-square fa-lg"></i></a></td>`
+                    : `<td></td>`;
+
+                const printHtml = `
+                    <td>
+                        <a target="_blank" href="@Url.Action("Print", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}" title="Друк">
+                            <i class="fa-solid fa-print fa-lg"></i>
+                        </a>
+                    </td>`;
+
+                tr.innerHTML = `
+                    <th scope="row">${idx + 1}</th>
+                    <td><label><span>${escapeHtml(item.requestNumber)}</span></label></td>
+                    <td><label><span>${escapeHtml(item.facility)}</span></label></td>
+                    <td><label><span>${escapeHtml(item.name)}</span></label></td>
+                    <td><label><span>${escapeHtml(item.caller)}</span></label></td>
+                    <td><label><span>${escapeHtml(item.address)}</span></label></td>
+                    <td><label><span>${escapeHtml(item.category)}</span></label></td>
+                    <td><label><span>${escapeHtml(item.subcategory)}</span></label></td>
+                    <td><label><span>${escapeHtml(item.text)}</span></label></td>
+                    <td>${audioHtml}</td>
+                    <td><label><span>${escapeHtml(item.date)}</span></label></td>
+                    <td>
+                        <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}">
+                            <i class="fa-solid fa-eye fa-lg"></i>
+                        </a>
+                    </td>
+                    ${printHtml}
+                    ${editHtml}
+                    <td>${actionsHtml}</td>
+                `;
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function loadAll() {
+            if (lastController) lastController.abort();
+            lastController = new AbortController();
+
+            const url = buildUrl();
+
+            fetch(url, { signal: lastController.signal })
+                .then(r => {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    return r.json();
+                })
+                .then(data => renderTable(data?.items || []))
+                .catch(err => {
+                    if (err.name === 'AbortError') return;
+                    console.error('GetAllList error:', err);
+                });
+        }
+
+        // events
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(loadAll, 250);
+            });
+        }
+
+        if (filtersForm) {
+            filtersForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                loadAll();
+            });
+        }
+
+        setInterval(() => {
+            if (typingTimer) return;
+            loadAll();
+        }, 60000);
+
+        loadAll();
+    })();
+    </script>
+}
