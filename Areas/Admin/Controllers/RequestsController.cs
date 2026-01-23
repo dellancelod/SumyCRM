@@ -367,7 +367,7 @@ namespace SumyCRM.Areas.Admin.Controllers
              string? dateFrom,
              string? dateTo,
              int page = 1,
-             int pageSize = 20)
+             int pageSize = 5)
         {
             if (page < 1) page = 1;
             if (pageSize < 5) pageSize = 5;

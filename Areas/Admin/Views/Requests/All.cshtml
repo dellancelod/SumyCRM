@@ -382,8 +382,8 @@
                         </a>
                     </td>`;
 
-                tr.innerHTML = `
-                    <th scope="row">${idx + 1}</th>
+                <tr.innerHTML = `
+                    <th scope="row">${escapeHtml(item.index)}</th>
                     <td><label><span>${escapeHtml(item.requestNumber)}</span></label></td>
                     <td><label><span>${escapeHtml(item.facility)}</span></label></td>
                     <td><label><span>${escapeHtml(item.name)}</span></label></td>
