@@ -60,6 +60,18 @@
             white-space: pre-wrap;
         }
 
+        .corner-badge {
+            position: absolute; /* IMPORTANT: not fixed */
+            top: 0;
+            right: 0;
+            border: 1.5px solid #000;
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            background: #fff;
+        }
 
         .header-block {
             text-align: center;
@@ -80,25 +92,10 @@
         }
 
 
-        @@page {
-            margin: 12mm;
-        }
-
-        /* ТІЛЬКИ ПЕРША СТОРІНКА */
-        @@page:first {
-            @@top-right {
-                content: "Інформаційний центр";
-                border: 1.5px solid #000;
-                border-radius: 8px;
-                padding: 6px 14px;
-                font-size: 11px;
-                font-weight: 700;
-                background: #fff;
-            }
-        }
     </style>
 </head>
 <body>
+    <div class="corner-badge">Інформаційний центр</div>
     <div class="no-print">
         <button onclick="window.print()">🖨️ Друкувати</button>
         <button onclick="window.close()">✖ Закрити</button>
