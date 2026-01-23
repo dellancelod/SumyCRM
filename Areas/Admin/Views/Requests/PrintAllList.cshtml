@@ -80,32 +80,20 @@
         }
 
 
-        .corner-badge {
-            position: fixed;
-            top: 5mm;
-            right: 5mm;
-            border: 1.5px solid #000;
-            border-radius: 8px;
-            padding: 6px 14px;
-            font-size: 11px;
-            font-weight: 700;
-            text-align: center;
-            background: #fff;
-            z-index: 1000;
+        @@page {
+            margin: 12mm;
         }
 
-        @@media print {
-            .corner-badge
-
-            {
-                position: running(badge);
-                display: none; /* hide in normal flow */
-            }
-
-        }
+        /* ТІЛЬКИ ПЕРША СТОРІНКА */
         @@page:first {
             @@top-right {
-                content: element(badge);
+                content: "Інформаційний центр";
+                border: 1.5px solid #000;
+                border-radius: 8px;
+                padding: 6px 14px;
+                font-size: 11px;
+                font-weight: 700;
+                background: #fff;
             }
         }
     </style>
@@ -163,7 +151,4 @@
     </table>
     
 </body>
-<div class="corner-badge">
-    Інформаційний центр
-</div>
 </html>
