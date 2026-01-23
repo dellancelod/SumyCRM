@@ -365,10 +365,13 @@
                         </form>`;
                 }
 
-                const editHtml = (isAdmin && item.isCompleted)
-                    ? `<td><a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
-                            <i class="fa-regular fa-pen-to-square fa-lg"></i></a></td>`
-                    : `<td></td>`;
+                const editHtml = isAdmin
+                ? `<td>
+                      <a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
+                        <i class="fa-regular fa-pen-to-square fa-lg"></i>
+                      </a>
+                   </td>`
+                : `<td></td>`;
 
                 const printHtml = `
                     <td>
