@@ -159,6 +159,119 @@ namespace SumyCRM.Controllers
 
             return Ok("Uploaded");
         }
+        [HttpPost("check-waterleak")]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> CheckWaterLeak(
+    [FromForm] IFormFile audioAddress,
+    [FromHeader(Name = "X-API-KEY")] string? apiKey)
+        {
+            string secret = _config["UploadSecret"];
+            if (apiKey != secret) return Unauthorized("Invalid API Key");
+            if (audioAddress == null || audioAddress.Length == 0) return BadRequest("No audio address");
+
+            // save temp
+            var tmpFolder = Path.Combine(Path.GetTempPath(), "sumycrm_calls");
+            Directory.CreateDirectory(tmpFolder);
+            var tmpPath = Path.Combine(tmpFolder, $"{Guid.NewGuid()}_{audioAddress.FileName}");
+
+            await using (var fs = new FileStream(tmpPath, FileMode.Create))
+                await audioAddress.CopyToAsync(fs);
+
+            // whisper
+            AudioClient audioClient = new("whisper-1", _apiKey);
+
+            AudioTranscriptionOptions addressOptions = new()
+            {
+                Language = "uk",
+                ResponseFormat = AudioTranscriptionFormat.Text,
+                Temperature = 0.0f,
+                Prompt =
+                    "Розпізнай ТІЛЬКИ адресу в місті Суми (Україна). " +
+                    "Формат: 'вул. ..., буд. ..., кв. ...' або 'просп. ..., буд. ...'. " +
+                    "Без зайвих фраз."
+            };
+
+            var whisperAddrPath = await ConvertToWhisperWavAsync(tmpPath, HttpContext.RequestAborted);
+            var tr = await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
+            var addr = CleanTranscript(tr.Text);
+
+            // match against DB
+            bool found = await HasWaterLeakMatch(addr);
+
+            // IMPORTANT: return plain "1"/"0" for Asterisk
+            return Content(found ? "1" : "0", "text/plain");
+        }
+
+        private async Task<bool> HasWaterLeakMatch(string inputAddress)
+        {
+            var norm = NormalizeAddr(inputAddress);
+            if (string.IsNullOrWhiteSpace(norm)) return false;
+
+            // quick filter in SQL first (cheap)
+            // take last N most recent open leaks if you want:
+            var leaks = await _dataManager.WaterLeakReports
+                .GetWaterLeakReports()
+                .Where(x => x.Status != "Done")
+                .Select(x => x.Address)
+                .ToListAsync();
+
+            foreach (var a in leaks)
+            {
+                var n2 = NormalizeAddr(a);
+                if (IsAddressClose(norm, n2)) return true;
+            }
+            return false;
+        }
+
+        // very simple normalization (you can expand)
+        private static string NormalizeAddr(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+            s = s.ToLowerInvariant();
+
+            s = s.Replace("м. суми", "")
+                 .Replace("суми", "")
+                 .Replace("вулиця", "вул")
+                 .Replace("проспект", "просп")
+                 .Replace("провулок", "пров")
+                 .Replace(".", " ")
+                 .Replace(",", " ")
+                 .Replace("  ", " ");
+
+            // keep digits/letters, collapse spaces
+            var cleaned = new string(s.Where(ch => char.IsLetterOrDigit(ch) || ch == ' ' || ch == '/').ToArray());
+            while (cleaned.Contains("  ")) cleaned = cleaned.Replace("  ", " ");
+            return cleaned.Trim();
+        }
+
+        private static bool IsAddressClose(string a, string b)
+        {
+            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
+
+            // must share a house number (very important)
+            var anum = ExtractHouse(a);
+            var bnum = ExtractHouse(b);
+            if (!string.IsNullOrEmpty(anum) && !string.IsNullOrEmpty(bnum) && anum != bnum)
+                return false;
+
+            // token overlap
+            var at = a.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            var bt = b.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            var common = at.Intersect(bt).Count();
+
+            // threshold: tune as needed
+            return common >= 2;
+        }
+
+        private static string ExtractHouse(string s)
+        {
+            // naive: first token that contains a digit
+            foreach (var t in s.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                if (t.Any(char.IsDigit)) return t;
+            return "";
+        }
+
         [HttpPost("record")]
         [AllowAnonymous]
         [IgnoreAntiforgeryToken] // для curl / Asterisk
