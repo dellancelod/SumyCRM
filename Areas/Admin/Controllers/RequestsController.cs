@@ -361,12 +361,17 @@ namespace SumyCRM.Areas.Admin.Controllers
 
         [HttpGet]
         public async Task<IActionResult> GetAllList(
-            string? term,
-            Guid? categoryId,
-            Guid? facilityId,
-            string? dateFrom,
-            string? dateTo)
+             string? term,
+             Guid? categoryId,
+             Guid? facilityId,
+             string? dateFrom,
+             string? dateTo,
+             int page = 1,
+             int pageSize = 20)
         {
+            if (page < 1) page = 1;
+            if (pageSize < 5) pageSize = 5;
+
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
 
@@ -374,17 +379,21 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
             if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
 
-            // IMPORTANT: no isCompleted filter (we want both)
+            // BOTH statuses
             query = ApplyFilters(query, isCompleted: null, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);
 
+            var total = await query.CountAsync();
+
             var list = await query
-                .OrderByDescending(r => r.DateAdded)
+                .OrderByDescending(r => r.DateAdded)   // stable order
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
             var items = list.Select((r, idx) => new
             {
-                index = idx + 1,
+                index = (page - 1) * pageSize + idx + 1,
                 id = r.Id,
                 requestNumber = r.RequestNumber,
                 name = r.Name,
@@ -401,7 +410,13 @@ namespace SumyCRM.Areas.Admin.Controllers
                 isCompleted = r.IsCompleted
             });
 
-            return Json(new { items });
+            return Json(new
+            {
+                items,
+                total,
+                currentPage = page,
+                totalPages = (int)Math.Ceiling(total / (double)pageSize)
+            });
         }
 
 

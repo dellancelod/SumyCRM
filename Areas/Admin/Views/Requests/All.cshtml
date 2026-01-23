@@ -118,6 +118,10 @@
     </table>
 </div>
 
+<nav id="paginationNav">
+    <ul class="pagination"></ul>
+</nav>
+
 <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -154,11 +158,11 @@
     <script>
         (function () {
           const message = @Html.Raw(
-                                    System.Text.Json.JsonSerializer.Serialize(
-                                            TempData["ToastMessage"]?.ToString() ?? ""
-                                    )
-                            );
-      const type = '@(TempData["ToastType"]?.ToString() ?? "success")';
+                    System.Text.Json.JsonSerializer.Serialize(
+                        TempData["ToastMessage"]?.ToString() ?? ""
+                    )
+                );
+          const type = '@(TempData["ToastType"]?.ToString() ?? "success")';
 
           if (!message) return;
 
@@ -263,6 +267,10 @@
     </script>
     <script>
     (function(){
+        const state = {
+            page: 1,
+            term: ''
+        };
         const searchInput = document.getElementById('requestSearch');
         const tableBody = document.getElementById('requestsTableBody');
         const filtersForm = document.getElementById('filtersForm');
@@ -285,11 +293,15 @@
             const base = '@Url.Action("GetAllList", "Requests", new { area = "Admin" })';
             const p = new URLSearchParams();
 
+            p.set('page', String(state.page));
+            // pageSize optional (if you want)
+            // p.set('pageSize', '20');
+
             if (f.categoryId) p.set('categoryId', f.categoryId);
             if (f.facilityId) p.set('facilityId', f.facilityId);
             if (f.dateFrom) p.set('dateFrom', f.dateFrom);
             if (f.dateTo) p.set('dateTo', f.dateTo);
-            if (f.term) p.set('term', f.term);
+            if (state.term && state.term.trim().length > 0) p.set('term', state.term.trim());
 
             return base + '?' + p.toString();
         }
@@ -407,24 +419,104 @@
                     if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
                 })
-                .then(data => renderTable(data?.items || []))
+                .then(data => {
+                    // sync page returned by server
+                    if (data?.currentPage) setPage(Number(data.currentPage));
+
+                    renderTable(data?.items || []);
+                    renderPagination(data);
+                })
                 .catch(err => {
                     if (err.name === 'AbortError') return;
                     console.error('GetAllList error:', err);
                 });
         }
 
+        const paginationNav = document.getElementById('paginationNav');
+
+        function setPage(p) {
+            state.page = p;
+        }
+
+        function renderPagination(data) {
+            if (!paginationNav) return;
+
+            const term = (state.term || '').trim();
+            if (term.length > 0) {
+                paginationNav.style.display = 'none';
+                return;
+            }
+
+            const totalPages  = Number(data?.totalPages || 0);
+            const currentPage = Number(data?.currentPage || state.page);
+
+            if (!totalPages || totalPages <= 1) {
+                paginationNav.style.display = 'none';
+                return;
+            }
+
+            paginationNav.style.display = 'block';
+
+            const ul = paginationNav.querySelector('ul.pagination');
+            if (!ul) return;
+
+            ul.innerHTML = '';
+
+            const mkItem = (p, label, active, disabled, ariaLabel) => {
+                const li = document.createElement('li');
+                li.className = `page-item${active ? ' active' : ''}${disabled ? ' disabled' : ''}`;
+
+                const a = document.createElement('a');
+                a.className = 'page-link';
+                a.href = '#';
+                a.dataset.page = String(p);
+                if (ariaLabel) a.setAttribute('aria-label', ariaLabel);
+                a.innerHTML = label;
+
+                li.appendChild(a);
+                return li;
+            };
+
+            // prev
+            ul.appendChild(
+                mkItem(currentPage - 1, '&laquo;', false, currentPage <= 1, 'Попередня')
+            );
+
+            for (let i = 1; i <= totalPages; i++) {
+                ul.appendChild(mkItem(i, String(i), i === currentPage, false));
+            }
+
+            // next
+            ul.appendChild(
+                mkItem(currentPage + 1, '&raquo;', false, currentPage >= totalPages, 'Наступна')
+            );
+
+            // clicks
+            ul.querySelectorAll('a.page-link').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const p = Number(a.dataset.page || currentPage);
+                    if (!p || p < 1 || p > totalPages || p === currentPage) return;
+                    setPage(p);
+                    loadAll();
+                });
+            });
+        }
+
         // events
         if (searchInput) {
             searchInput.addEventListener('input', function () {
                 clearTimeout(typingTimer);
-                typingTimer = setTimeout(loadAll, 250);
+                state.term = (searchInput.value || '');
+                setPage(1);
+                typingTimer = setTimeout(loadAll, 300);
             });
         }
-
+        
         if (filtersForm) {
             filtersForm.addEventListener('submit', function (e) {
                 e.preventDefault();
+                setPage(1);
                 loadAll();
             });
         }
