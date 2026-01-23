@@ -95,10 +95,19 @@
         }
 
         @@media print {
-            .corner-badge {
-                font-size: 10.5px;
-                padding: 5px 5px;
+            .corner-badge
+
+            {
+                position: running(badge);
+                display: none; /* hide in normal flow */
             }
+
+        }
+        @@page:first {
+            @top-right {
+                content: element(badge);
+            }
+        }
     </style>
 </head>
 <body>
