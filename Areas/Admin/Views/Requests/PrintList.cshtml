@@ -75,9 +75,9 @@
 
 
         .corner-badge {
-            position: fixed;
-            top: 5mm;
-            right: 5mm;
+            position: absolute; /* IMPORTANT: not fixed */
+            top: 0;
+            right: 0;
             border: 1.5px solid #000;
             border-radius: 8px;
             padding: 6px 14px;
@@ -85,7 +85,6 @@
             font-weight: 700;
             text-align: center;
             background: #fff;
-            z-index: 1000;
         }
 
         @@media print {
@@ -100,6 +99,9 @@
     </style>
 </head>
 <body>
+    <div class="corner-badge">
+        Інформаційний центр
+    </div>
     <div class="no-print">
         <button onclick="window.print()">🖨️ Друкувати</button>
         <button onclick="window.close()">✖ Закрити</button>
@@ -114,14 +116,6 @@
     </div>
 
     <div class="meta">
-        @if (!string.IsNullOrWhiteSpace(term))
-        {
-            <div><b>Пошук:</b> @term</div>
-        }
-        @if (!string.IsNullOrWhiteSpace(dateFrom) || !string.IsNullOrWhiteSpace(dateTo))
-        {
-            <div><b>Період:</b> @dateFrom — @dateTo</div>
-        }
         <div><b>Кількість:</b> @Model.Count</div>
         <div><b>Дата:</b> @DateTime.Now.ToString("dd.MM.yyyy HH:mm")</div>
     </div>
@@ -160,7 +154,5 @@
         </tbody>
     </table>
 </body>
-<div class="corner-badge">
-    Інформаційний центр
-</div>
+
 </html>

@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using SumyCRM.Areas.Admin.Models;
 using SumyCRM.Data;
 using SumyCRM.Models;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
@@ -138,8 +141,225 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return (last ?? 0) + 1;
         }
+        static Run R(string text, bool bold = false, string fontSize = "24") // 12pt = 24
+        {
+            return new Run(
+                new RunProperties(
+                    new RunFonts
+                    {
+                        Ascii = "Times New Roman",
+                        HighAnsi = "Times New Roman",
+                        EastAsia = "Times New Roman",
+                        ComplexScript = "Times New Roman"
+                    },
+                    new FontSize { Val = fontSize },
+                    bold ? new Bold() : null
+                ),
+                new Text(text) { Space = SpaceProcessingModeValues.Preserve }
+            );
+        }
 
+        static void AddTopRightBadgeHeader(WordprocessingDocument doc, MainDocumentPart mainPart, string text)
+        {
+            var headerPart = mainPart.AddNewPart<HeaderPart>();
+            var headerPartId = mainPart.GetIdOfPart(headerPart);
+
+            // Header content: right-aligned "badge" made of a 1-cell table with borders/padding
+            var tbl = new Table();
+
+            var tblProps = new TableProperties(
+                new TableWidth { Type = TableWidthUnitValues.Auto, Width = "0" },
+                new TableJustification { Val = TableRowAlignmentValues.Right },
+                new TableBorders(
+                    new TopBorder { Val = BorderValues.Single, Size = 12 },
+                    new BottomBorder { Val = BorderValues.Single, Size = 12 },
+                    new LeftBorder { Val = BorderValues.Single, Size = 12 },
+                    new RightBorder { Val = BorderValues.Single, Size = 12 },
+                    new InsideHorizontalBorder { Val = BorderValues.None },
+                    new InsideVerticalBorder { Val = BorderValues.None }
+                )
+            );
+            tbl.AppendChild(tblProps);
+
+            var tr = new TableRow();
+
+            var tc = new TableCell();
+            tc.AppendChild(new TableCellProperties(
+                new TableCellWidth { Type = TableWidthUnitValues.Auto, Width = "0" },
+                // padding (like your HTML badge)
+                new TableCellMargin(
+                    new TopMargin { Width = "120", Type = TableWidthUnitValues.Dxa },
+                    new BottomMargin { Width = "120", Type = TableWidthUnitValues.Dxa },
+                    new LeftMargin { Width = "240", Type = TableWidthUnitValues.Dxa },
+                    new RightMargin { Width = "240", Type = TableWidthUnitValues.Dxa }
+                )
+            ));
+
+            var p = new Paragraph(
+                new ParagraphProperties(new Justification { Val = JustificationValues.Right }),
+                R(text, bold: true, fontSize: "22")
+            );
+
+            tc.Append(p);
+            tr.Append(tc);
+            tbl.Append(tr);
+
+            headerPart.Header = new Header(tbl);
+            headerPart.Header.Save();
+
+            // Attach header to section properties (first section)
+            var sectProps = mainPart.Document.Body!.Elements<SectionProperties>().LastOrDefault();
+            if (sectProps == null)
+            {
+                sectProps = new SectionProperties();
+                mainPart.Document.Body!.Append(sectProps);
+            }
+
+            // NOTE: This applies to all pages. If you need FIRST PAGE ONLY, see note below.
+            sectProps.RemoveAllChildren<HeaderReference>();
+            sectProps.Append(new HeaderReference { Type = HeaderFooterValues.Default, Id = headerPartId });
+
+            // If you want a different first page header, Word needs "DifferentFirstPageHeaderFooter"
+            // and a HeaderReference(Type=First). See note below.
+        }
         // ----------------- actions -----------------
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExportPrintAllListDocx(
+            string? headerLine,
+            string? term,
+            string? dateFrom,
+            string? dateTo,
+            Guid? categoryId = null,
+            Guid? facilityId = null)
+        {
+            var query = BaseQuery();
+            query = ApplyFacilityAccessFilter(query);
+
+            DateTime? df = null, dt = null;
+            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
+            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+
+            // BOTH statuses
+            query = ApplyFilters(query, isCompleted: null, categoryId, facilityId, df, dt);
+            query = ApplySearch(query, term);
+
+            // Active first, then completed (stable)
+            var list = await query
+                .OrderBy(r => r.IsCompleted)              // false (active) first
+                .ThenByDescending(r => r.DateAdded)
+                .ToListAsync();
+            
+            
+            // Build docx
+            using var ms = new MemoryStream();
+            using (var doc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document, true))
+            {
+                var mainPart = doc.AddMainDocumentPart();
+                mainPart.Document = new Document(new Body());
+                var body = mainPart.Document.Body!;
+
+                AddTopRightBadgeHeader(doc, mainPart, "Інформаційний центр");
+
+                // Title
+                body.Append(
+                    PCenteredBold("ІНФОРМАЦІЯ"),
+                    PCenteredBold("стосовно скарг мешканців, що надійшли до відділу «Інформаційний центр» на " + (string.IsNullOrWhiteSpace(headerLine) ? "____________" : headerLine))
+                );
+
+                body.Append(new Paragraph(new Run(new Text(" "))));
+
+                // Meta
+                body.Append(PSimple($"Кількість: {list.Count}"));
+                body.Append(PSimple($"Дата: {DateTime.Now:dd.MM.yyyy HH:mm}"));
+                if (!string.IsNullOrWhiteSpace(dateFrom) || !string.IsNullOrWhiteSpace(dateTo))
+
+                body.Append(new Paragraph(new Run(new Text(" "))));
+
+                // Table
+                var table = new Table();
+
+                // basic borders
+                table.AppendChild(new TableProperties(
+                    new TableBorders(
+                        new TopBorder { Val = BorderValues.Single, Size = 6 },
+                        new BottomBorder { Val = BorderValues.Single, Size = 6 },
+                        new LeftBorder { Val = BorderValues.Single, Size = 6 },
+                        new RightBorder { Val = BorderValues.Single, Size = 6 },
+                        new InsideHorizontalBorder { Val = BorderValues.Single, Size = 6 },
+                        new InsideVerticalBorder { Val = BorderValues.Single, Size = 6 }
+                    )
+                ));
+
+                // header row
+                table.Append(
+                    TR(
+                        TH("№"),
+                        TH("Номер"),
+                        TH("Дата"),
+                        TH("Адреса"),
+                        TH("ПІБ"),
+                        TH("Телефон"),
+                        TH("Зміст скарги"),
+                        TH("Примітки")
+                    )
+                );
+
+                int idx = 1;
+                foreach (var r in list)
+                {
+                    table.Append(
+                        TR(
+                            TD(idx.ToString()),
+                            TD((r.RequestNumber).ToString()),
+                            TD(r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")),
+                            TD(r.Address ?? ""),
+                            TD(r.Name ?? ""),
+                            TD(r.Caller ?? ""),
+                            TD((r.Text ?? "").Trim()),
+                            TD("")
+                        )
+                    );
+                    idx++;
+                }
+
+                body.Append(table);
+                mainPart.Document.Save();
+            }
+
+            var fileName = $"zvernennia_{DateTime.Now:yyyyMMdd_HHmm}.docx";
+            return File(ms.ToArray(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                fileName);
+
+            // ---- local helpers ----
+            static Paragraph PCenteredBold(string text) =>
+                new Paragraph(
+                    new ParagraphProperties(new Justification { Val = JustificationValues.Center }),
+                    R(text, bold: true, fontSize: "28") // 14pt for title
+                );
+
+            static Paragraph PSimple(string text) =>
+                    new Paragraph(R(text, fontSize: "24")); // 12pt body text
+
+            static TableRow TR(params TableCell[] cells)
+            {
+                var tr = new TableRow();
+                foreach (var c in cells) tr.Append(c);
+                return tr;
+            }
+
+            static TableCell TH(string text) =>
+                new TableCell(
+                    new Paragraph(R(text, bold: true, fontSize: "24"))
+                );
+
+            static TableCell TD(string text) =>
+                new TableCell(
+                    new Paragraph(R(text, fontSize: "24"))
+                );
+        }
 
         public async Task<IActionResult> Index(
             int page = 1,
