@@ -436,11 +436,7 @@
         function renderPagination(data) {
             if (!paginationNav) return;
 
-            const term = (state.term || '').trim();
-            if (term.length > 0) {
-                paginationNav.style.display = 'none';
-                return;
-            }
+            
 
             const totalPages  = Number(data?.totalPages || 0);
             const currentPage = Number(data?.currentPage || state.page);
