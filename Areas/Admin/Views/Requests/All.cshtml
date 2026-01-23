@@ -325,12 +325,7 @@
             }
 
             // Active first, then completed
-            const active = items.filter(x => !x.isCompleted);
-            const done = items.filter(x => x.isCompleted);
-
-            const ordered = active.concat(done);
-
-            ordered.forEach((item, idx) => {
+            items.forEach((item) => {
                 const tr = document.createElement('tr');
 
                 const isNoFacility = !item.facility || item.facility.trim() === '' || item.facility.trim() === 'Немає';

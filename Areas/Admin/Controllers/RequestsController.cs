@@ -386,7 +386,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             var total = await query.CountAsync();
 
             var list = await query
-                .OrderByDescending(r => r.DateAdded)   // stable order
+                .OrderBy(r => r.IsCompleted)                 // false (active) first, true (completed) last
+                .ThenByDescending(r => r.DateAdded)          // newest first inside each group
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
