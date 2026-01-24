@@ -164,46 +164,79 @@ namespace SumyCRM.Controllers
         [AllowAnonymous]
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> CheckWaterLeak(
-            [FromForm] IFormFile audioAddress,
-            [FromHeader(Name = "X-API-KEY")] string? apiKey)
+    [FromForm] IFormFile audioAddress,
+    [FromHeader(Name = "X-API-KEY")] string? apiKey)
         {
             string secret = _config["UploadSecret"];
-            if (apiKey != secret) return Unauthorized("Invalid API Key");
-            if (audioAddress == null || audioAddress.Length == 0) return BadRequest("No audio address");
+            if (apiKey != secret)
+                return Unauthorized("Invalid API Key");
 
-            // save temp
-            var tmpFolder = Path.Combine(Path.GetTempPath(), "sumycrm_calls");
-            Directory.CreateDirectory(tmpFolder);
-            var tmpPath = Path.Combine(tmpFolder, $"{Guid.NewGuid()}_{audioAddress.FileName}");
+            if (audioAddress == null || audioAddress.Length == 0)
+                return BadRequest("No audio address");
 
-            await using (var fs = new FileStream(tmpPath, FileMode.Create))
-                await audioAddress.CopyToAsync(fs);
+            string? tmpPath = null;
+            string? whisperPath = null;
 
-            // whisper
-            AudioClient audioClient = new("whisper-1", _apiKey);
-
-            AudioTranscriptionOptions addressOptions = new()
+            try
             {
-                Language = "uk",
-                ResponseFormat = AudioTranscriptionFormat.Text,
-                Temperature = 0.0f,
-                Prompt =
-                    "Розпізнай ТІЛЬКИ адресу в місті Суми (Україна). " +
-                    "Формат: 'вул. ..., буд. ..., кв. ...' або 'просп. ..., буд. ...'. " +
-                    "Без зайвих фраз."
-            };
+                // ===== save temp file =====
+                var tmpFolder = Path.Combine(Path.GetTempPath(), "sumycrm_calls");
+                Directory.CreateDirectory(tmpFolder);
 
-            var whisperAddrPath = await ConvertToWhisperWavAsync(tmpPath, HttpContext.RequestAborted);
-            AudioTranscription tr = await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
-            var addr = CleanTranscript(tr.Text);
+                tmpPath = Path.Combine(
+                    tmpFolder,
+                    $"{Guid.NewGuid()}_{Path.GetFileName(audioAddress.FileName)}"
+                );
 
-            // match against DB
-            bool found = await HasWaterLeakMatch(addr);
+                await using (var fs = new FileStream(tmpPath, FileMode.Create))
+                    await audioAddress.CopyToAsync(fs);
 
-            // IMPORTANT: return plain "1"/"0" for Asterisk
-            return Content(found ? "1" : "0", "text/plain");
+                // ===== Whisper =====
+                AudioClient audioClient = new("whisper-1", _apiKey);
+
+                AudioTranscriptionOptions addressOptions = new()
+                {
+                    Language = "uk",
+                    ResponseFormat = AudioTranscriptionFormat.Text,
+                    Temperature = 0.0f,
+                    Prompt =
+                        "Розпізнай ТІЛЬКИ адресу в місті Суми (Україна). " +
+                        "Формат: 'вул. ..., буд. ..., кв. ...' або 'просп. ..., буд. ...'. " +
+                        "Без зайвих фраз."
+                };
+
+                whisperPath = await ConvertToWhisperWavAsync(tmpPath, HttpContext.RequestAborted);
+
+                AudioTranscription tr =
+                    await audioClient.TranscribeAudioAsync(whisperPath, addressOptions);
+
+                var addr = CleanTranscript(tr.Text);
+
+                // ===== check DB =====
+                bool found = await HasWaterLeakMatch(addr);
+
+                // IMPORTANT: plain response for Asterisk
+                return Content(found ? "1" : "0", "text/plain");
+            }
+            finally
+            {
+                // ===== cleanup temp files =====
+                SafeDelete(tmpPath);
+                SafeDelete(whisperPath);
+            }
         }
-
+        static void SafeDelete(string? path)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(path) && System.IO.File.Exists(path))
+                    System.IO.File.Delete(path);
+            }
+            catch
+            {
+                // intentionally ignored (логувати можна, але Asteriskу пофіг)
+            }
+        }
         private async Task<bool> HasWaterLeakMatch(string inputAddress)
         {
             var norm = NormalizeAddr(inputAddress);
