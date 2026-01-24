@@ -218,9 +218,14 @@ namespace SumyCRM.Areas.Admin.Controllers
                     if (geo == null)
                         return BadRequest(new { error = "Адреси не знайдено. Перевірте правильний напис вулиці / номера будинку" });
 
+                    var finalAddress =
+                        geo.Value.shortAddress.Any(char.IsDigit)
+                            ? geo.Value.shortAddress
+                            : input;
+                     
                     var entity = new WaterLeakReport
                     {
-                        Address = geo.Value.shortAddress,
+                        Address = finalAddress,
                         Latitude = geo.Value.lat,
                         Longitude = geo.Value.lon,
                         Notes = dto.Notes,
