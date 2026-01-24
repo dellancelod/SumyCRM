@@ -164,8 +164,8 @@ namespace SumyCRM.Controllers
         [AllowAnonymous]
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> CheckWaterLeak(
-    [FromForm] IFormFile audioAddress,
-    [FromHeader(Name = "X-API-KEY")] string? apiKey)
+        [FromForm] IFormFile audioAddress,
+        [FromHeader(Name = "X-API-KEY")] string? apiKey)
         {
             string secret = _config["UploadSecret"];
             if (apiKey != secret)

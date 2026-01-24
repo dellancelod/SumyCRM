@@ -25,15 +25,32 @@ namespace SumyCRM.Services
         {
             address = (address ?? "").Trim();
 
-            if (address.Contains("Суми", StringComparison.OrdinalIgnoreCase) ||
-                address.Contains("Sumy", StringComparison.OrdinalIgnoreCase))
+            if (address.Contains("місто Суми", StringComparison.OrdinalIgnoreCase) ||
+                address.Contains("Sumy city", StringComparison.OrdinalIgnoreCase))
             {
                 return address;
             }
 
             return $"Суми, {address}";
         }
+        private static bool IsSumyCity(JsonElement addr)
+        {
+            // Nominatim може покласти населений пункт у різні ключі
+            string[] keys = { "city", "town", "municipality" };
 
+            foreach (var k in keys)
+            {
+                if (addr.TryGetProperty(k, out var el))
+                {
+                    var v = (el.GetString() ?? "").Trim();
+                    if (v.Equals("Суми", StringComparison.OrdinalIgnoreCase) ||
+                        v.Equals("Sumy", StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+
+            return false;
+        }
         public async Task<(double lat, double lon, string shortAddress, string address)?> GeocodeAsync(string address, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(address)) return null;
@@ -51,7 +68,7 @@ namespace SumyCRM.Services
 
             var url =
                 "search" +
-                "?format=jsonv2&limit=1&addressdetails=1" +
+                "?format=jsonv2&limit=7&addressdetails=1" +
                 "&countrycodes=ua" +
                 "&q=" + Uri.EscapeDataString(address);
 
@@ -67,49 +84,61 @@ namespace SumyCRM.Services
 
             if (arr.GetArrayLength() > 0)
             {
-                var first = arr[0];
+                for (int i = 0; i < arr.GetArrayLength(); i++)
+                {
+                    var first = arr[i];
 
-                if (double.TryParse(first.GetProperty("lat").GetString(),
+                    if (!first.TryGetProperty("address", out var addrObj))
+                        continue;
+
+                    if (!IsSumyCity(addrObj))
+                        continue;
+
+                    bool hasHouse = addrObj.TryGetProperty("house_number", out var h) && !string.IsNullOrWhiteSpace(h.GetString());
+                    if (!hasHouse) 
+                        continue; // або result=null
+
+                    string? house = null;
+                    house = h.GetString();
+
+                    if (double.TryParse(first.GetProperty("lat").GetString(),
                         System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var lat) &&
                     double.TryParse(first.GetProperty("lon").GetString(),
                         System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var lon))
 
-                {
-                    string? name = null;
-                    string? shortAddress = null;
-
-
-                    if (first.TryGetProperty("name", out var nEl))
-                        name = nEl.GetString();
-
-                    if (first.TryGetProperty("address", out var addr))
                     {
-                        string? house = null;
-                        string? road = null;
+                        string? name = null;
+                        string? shortAddress = null;
 
-                        if (addr.TryGetProperty("house_number", out var h))
-                            house = h.GetString();
 
-                        // possible street keys (priority order)
-                        string[] roadKeys = { "road", "pedestrian", "residential", "highway" };
+                        if (first.TryGetProperty("name", out var nEl))
+                            name = nEl.GetString();
 
-                        foreach (var k in roadKeys)
+                        if (first.TryGetProperty("address", out var addr))
                         {
-                            if (addr.TryGetProperty(k, out var r))
+                            string? road = null;
+
+                            // possible street keys (priority order)
+                            string[] roadKeys = { "road", "pedestrian", "residential", "highway" };
+
+                            foreach (var k in roadKeys)
                             {
-                                road = r.GetString();
-                                if (!string.IsNullOrWhiteSpace(road))
-                                    break;
+                                if (addr.TryGetProperty(k, out var r))
+                                {
+                                    road = r.GetString();
+                                    if (!string.IsNullOrWhiteSpace(road))
+                                        break;
+                                }
                             }
+
+                            if (!string.IsNullOrWhiteSpace(road))
+                                shortAddress = house != null ? $"{house}, {road}" : name;
                         }
 
-                        if (!string.IsNullOrWhiteSpace(road))
-                            shortAddress = house != null ? $"{house}, {road}" : road;
+                        result = (lat, lon, shortAddress, name);
                     }
-
-                    result = (lat, lon, shortAddress, name);
                 }
             }
 
