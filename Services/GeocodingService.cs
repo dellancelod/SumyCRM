@@ -68,7 +68,7 @@ namespace SumyCRM.Services
 
             var url =
                 "search" +
-                "?format=jsonv2&limit=7&addressdetails=1" +
+                "?format=jsonv2&limit=10&addressdetails=1" +
                 "&countrycodes=ua" +
                 "&q=" + Uri.EscapeDataString(address);
 
