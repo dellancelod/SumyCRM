@@ -220,7 +220,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
                     var entity = new WaterLeakReport
                     {
-                        Address = dto.Address.Trim(),
+                        Address = geo.Value.shortAddress,
                         Latitude = geo.Value.lat,
                         Longitude = geo.Value.lon,
                         Notes = dto.Notes,
@@ -254,9 +254,14 @@ namespace SumyCRM.Areas.Admin.Controllers
                     lines.Select(line => line.Select(p => new[] { p.lat, p.lon }).ToList()).ToList()
                 );
 
+                var geoStreet = await _geo.GeocodeAsync(input, ct);
+                var officialStreet = geoStreet?.address;
+                if (string.IsNullOrWhiteSpace(officialStreet))
+                    officialStreet = input;
+
                 var streetEntity = new WaterLeakReport
                 {
-                    Address = input,
+                    Address = officialStreet,
                     Latitude = center.lat,
                     Longitude = center.lon,
                     Notes = dto.Notes,

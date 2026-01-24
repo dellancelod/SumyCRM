@@ -6,7 +6,7 @@ namespace SumyCRM.Services
 {
     public interface IGeocodingService
     {
-        Task<(double lat, double lon)?> GeocodeAsync(string address, CancellationToken ct = default);
+        Task<(double lat, double lon, string shortAddress, string address)?> GeocodeAsync(string address, CancellationToken ct = default);
     }
 
 
@@ -34,7 +34,7 @@ namespace SumyCRM.Services
             return $"Суми, {address}";
         }
 
-        public async Task<(double lat, double lon)?> GeocodeAsync(string address, CancellationToken ct = default)
+        public async Task<(double lat, double lon, string shortAddress, string address)?> GeocodeAsync(string address, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(address)) return null;
 
@@ -44,14 +44,14 @@ namespace SumyCRM.Services
             var cacheKey = $"geo:nominatim:{address.ToLowerInvariant()}";
 
             // ✅ Try cache first
-            if (_cache.TryGetValue<(double lat, double lon)?>(cacheKey, out var cached))
+            if (_cache.TryGetValue<(double lat, double lon, string displayName, string name)?>(cacheKey, out var cached))
                 return cached;
 
             var http = _httpFactory.CreateClient("nominatim");
 
             var url =
                 "search" +
-                "?format=jsonv2&limit=1&addressdetails=0" +
+                "?format=jsonv2&limit=1&addressdetails=1" +
                 "&countrycodes=ua" +
                 "&q=" + Uri.EscapeDataString(address);
 
@@ -63,7 +63,7 @@ namespace SumyCRM.Services
 
             using var doc = JsonDocument.Parse(body);
             var arr = doc.RootElement;
-            (double lat, double lon)? result = null;
+            (double lat, double lon, string displayName, string name)? result = null;
 
             if (arr.GetArrayLength() > 0)
             {
@@ -75,8 +75,41 @@ namespace SumyCRM.Services
                     double.TryParse(first.GetProperty("lon").GetString(),
                         System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var lon))
+
                 {
-                    result = (lat, lon);
+                    string? name = null;
+                    string? shortAddress = null;
+
+
+                    if (first.TryGetProperty("name", out var nEl))
+                        name = nEl.GetString();
+
+                    if (first.TryGetProperty("address", out var addr))
+                    {
+                        string? house = null;
+                        string? road = null;
+
+                        if (addr.TryGetProperty("house_number", out var h))
+                            house = h.GetString();
+
+                        // possible street keys (priority order)
+                        string[] roadKeys = { "road", "pedestrian", "residential", "highway" };
+
+                        foreach (var k in roadKeys)
+                        {
+                            if (addr.TryGetProperty(k, out var r))
+                            {
+                                road = r.GetString();
+                                if (!string.IsNullOrWhiteSpace(road))
+                                    break;
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(road))
+                            shortAddress = house != null ? $"{house}, {road}" : road;
+                    }
+
+                    result = (lat, lon, shortAddress, name);
                 }
             }
 
