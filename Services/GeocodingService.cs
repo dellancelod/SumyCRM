@@ -68,7 +68,7 @@ namespace SumyCRM.Services
 
             var url =
                 "search" +
-                "?format=jsonv2&limit=10&addressdetails=1" +
+                "?format=jsonv2&limit=5&addressdetails=1" +
                 "&countrycodes=ua" +
                 "&q=" + Uri.EscapeDataString(address);
 
@@ -94,13 +94,6 @@ namespace SumyCRM.Services
                     if (!IsSumyCity(addrObj))
                         continue;
 
-                    bool hasHouse = addrObj.TryGetProperty("house_number", out var h) && !string.IsNullOrWhiteSpace(h.GetString());
-                    if (!hasHouse) 
-                        continue; // або result=null
-
-                    string? house = null;
-                    house = h.GetString();
-
                     if (double.TryParse(first.GetProperty("lat").GetString(),
                         System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out var lat) &&
@@ -118,7 +111,11 @@ namespace SumyCRM.Services
 
                         if (first.TryGetProperty("address", out var addr))
                         {
+                            string? house = null;
                             string? road = null;
+
+                            if (addr.TryGetProperty("house_number", out var h))
+                                house = h.GetString();
 
                             // possible street keys (priority order)
                             string[] roadKeys = { "road", "pedestrian", "residential", "highway" };
