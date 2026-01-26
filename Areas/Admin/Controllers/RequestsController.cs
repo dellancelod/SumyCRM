@@ -223,6 +223,157 @@ namespace SumyCRM.Areas.Admin.Controllers
             // and a HeaderReference(Type=First). See note below.
         }
         // ----------------- actions -----------------
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExportPrintListDocx(
+            bool isCompleted,
+            string? headerLine,
+            string? term,
+            string? dateFrom,
+            string? dateTo,
+            Guid? categoryId = null,
+            Guid? facilityId = null)
+        {
+            var query = BaseQuery();
+            query = ApplyFacilityAccessFilter(query);
+
+            DateTime? df = null, dt = null;
+            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
+            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+
+            // ✅ ONLY one status
+            query = ApplyFilters(query, isCompleted: isCompleted, categoryId, facilityId, df, dt);
+            query = ApplySearch(query, term);
+
+            // stable order (same as Index)
+            var list = await query
+                .OrderByDescending(r => r.DateAdded)
+                .ToListAsync();
+
+            using var ms = new MemoryStream();
+            using (var doc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document, true))
+            {
+                var mainPart = doc.AddMainDocumentPart();
+                mainPart.Document = new Document(new Body());
+                var body = mainPart.Document.Body!;
+
+                AddTopRightBadgeHeader(doc, mainPart, "Інформаційний центр");
+
+                // Title
+                body.Append(
+                    PCenteredBold("ІНФОРМАЦІЯ"),
+                    PCenteredBold("стосовно скарг мешканців, що надійшли до відділу «Інформаційний центр» на " +
+                                  (string.IsNullOrWhiteSpace(headerLine) ? "____________" : headerLine))
+                );
+
+                body.Append(new Paragraph(R(" ")));
+
+                // Meta
+                body.Append(PSimple($"Тип: {(isCompleted ? "Виконані" : "Активні")}"));
+                body.Append(PSimple($"Кількість: {list.Count}"));
+                body.Append(PSimple($"Дата: {DateTime.Now:dd.MM.yyyy HH:mm}"));
+
+                if (!string.IsNullOrWhiteSpace(term))
+                    body.Append(PSimple($"Пошук: {term}"));
+
+                if (!string.IsNullOrWhiteSpace(dateFrom) || !string.IsNullOrWhiteSpace(dateTo))
+                    body.Append(PSimple($"Період: {dateFrom ?? "—"} — {dateTo ?? "—"}"));
+
+                body.Append(new Paragraph(R(" ")));
+
+                // Table
+                var table = new Table();
+
+                table.AppendChild(new TableProperties(
+                    new TableBorders(
+                        new TopBorder { Val = BorderValues.Single, Size = 6 },
+                        new BottomBorder { Val = BorderValues.Single, Size = 6 },
+                        new LeftBorder { Val = BorderValues.Single, Size = 6 },
+                        new RightBorder { Val = BorderValues.Single, Size = 6 },
+                        new InsideHorizontalBorder { Val = BorderValues.Single, Size = 6 },
+                        new InsideVerticalBorder { Val = BorderValues.Single, Size = 6 }
+                    )
+                ));
+
+                table.Append(
+                    TR(
+                        TH("№"),
+                        TH("Номер"),
+                        TH("Дата"),
+                        TH("Адреса"),
+                        TH("ПІБ"),
+                        TH("Телефон"),
+                        TH("Зміст скарги"),
+                        TH("Примітки")
+                    )
+                );
+
+                int idx = 1;
+                foreach (var r in list)
+                {
+                    table.Append(
+                        TR(
+                            TD(idx.ToString()),
+                            TD(r.RequestNumber.ToString()),
+                            TD(r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")),
+                            TD(r.Address ?? ""),
+                            TD(r.Name ?? ""),
+                            TD(r.Caller ?? ""),
+                            TD((r.Text ?? "").Trim()),
+                            TD("")
+                        )
+                    );
+                    idx++;
+                }
+
+                body.Append(table);
+                mainPart.Document.Save();
+            }
+
+            var fileName = $"zvernennia_{(isCompleted ? "done" : "active")}_{DateTime.Now:yyyyMMdd_HHmm}.docx";
+            return File(
+                ms.ToArray(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                fileName
+            );
+
+            // ---- helpers (Times New Roman) ----
+            static Run R(string text, bool bold = false, string fontSize = "24")
+            {
+                // fontSize: "24" = 12pt, "28" = 14pt, etc. (half-points)
+                var rp = new RunProperties(
+                    new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" },
+                    new FontSize { Val = fontSize },
+                    new FontSizeComplexScript { Val = fontSize }
+                );
+
+                if (bold) rp.Append(new Bold());
+
+                return new Run(rp, new Text(text) { Space = SpaceProcessingModeValues.Preserve });
+            }
+
+            static Paragraph PCenteredBold(string text) =>
+                new Paragraph(
+                    new ParagraphProperties(new Justification { Val = JustificationValues.Center }),
+                    R(text, bold: true, fontSize: "28")
+                );
+
+            static Paragraph PSimple(string text) =>
+                new Paragraph(R(text, fontSize: "24"));
+
+            static TableRow TR(params TableCell[] cells)
+            {
+                var tr = new TableRow();
+                foreach (var c in cells) tr.Append(c);
+                return tr;
+            }
+
+            static TableCell TH(string text) =>
+                new TableCell(new Paragraph(R(text, bold: true, fontSize: "24")));
+
+            static TableCell TD(string text) =>
+                new TableCell(new Paragraph(R(text, fontSize: "24")));
+        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -772,6 +923,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             ViewBag.Term = term ?? "";
             ViewBag.DateFrom = dateFrom ?? "";
             ViewBag.DateTo = dateTo ?? "";
+            ViewBag.SelectedCategoryId = categoryId;     
+            ViewBag.SelectedFacilityId = facilityId;     
 
             return View("PrintAllList", list); // create view
         }

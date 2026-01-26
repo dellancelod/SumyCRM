@@ -8,6 +8,9 @@
     var active = Model.Where(x => !x.IsCompleted).ToList();
     var done = Model.Where(x => x.IsCompleted).ToList();
     var ordered = active.Concat(done).ToList();
+
+    Guid? selectedCategoryId = ViewBag.SelectedCategoryId as Guid?;
+    Guid? selectedFacilityId = ViewBag.SelectedFacilityId as Guid?;
 }
 
 <!doctype html>
@@ -109,6 +112,9 @@
             <input type="hidden" name="term" value="@term" />
             <input type="hidden" name="dateFrom" value="@dateFrom" />
             <input type="hidden" name="dateTo" value="@dateTo" />
+            <input type="hidden" name="categoryId" id="docxCategoryId" value="@(selectedCategoryId?.ToString() ?? "")" />
+            <input type="hidden" name="facilityId" id="docxFacilityId" value="@(selectedFacilityId?.ToString() ?? "")" />
+
 
             <button type="submit" class="btn btn-sm btn-outline-primary" id="btnSaveDocx">
                 💾 Зберегти файл
