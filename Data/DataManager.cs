@@ -11,12 +11,13 @@ namespace SumyCRM.Data
         public IUserFacilities UserFacilities { get; set; }
         public ICallRecordingsRepository CallRecordings { get; set; }
         public IWaterLeakReports WaterLeakReports { get; set; }
+        public ICallEventsRepository CallEvents { get; set; }
 
 
         public DataManager(IRequestsRepository requests, ICategoriesRepository categories,
             ISchedulesRepository schedules, IFacilitiesRepository facilities, 
             IUserFacilities userFacilities, ICallRecordingsRepository callRecordings,
-            IWaterLeakReports waterLeakReports) { 
+            IWaterLeakReports waterLeakReports, ICallEventsRepository callEvents) { 
             Requests = requests;
             Categories = categories;
             Schedules = schedules;
@@ -24,6 +25,7 @@ namespace SumyCRM.Data
             UserFacilities = userFacilities;
             CallRecordings = callRecordings;
             WaterLeakReports = waterLeakReports;
+            CallEvents = callEvents;
         }
     }
 }

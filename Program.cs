@@ -18,6 +18,8 @@ builder.Services.AddTransient<IFacilitiesRepository, EFFacilitiesRepository>();
 builder.Services.AddTransient<IUserFacilities, EFUserFacilities>();
 builder.Services.AddTransient<ICallRecordingsRepository, EFCallRecordingsRepository>();
 builder.Services.AddTransient<IWaterLeakReports, EFWaterLeakReportsRepository>();
+builder.Services.AddTransient<ICallEventsRepository, EFCallEventsRepository>();
+
 builder.Services.AddHttpClient<IScheduleAudioService, ScheduleAudioService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddScoped<IGeocodingService, NominatimGeocodingService>();

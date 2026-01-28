@@ -1,0 +1,92 @@
+﻿@model SumyCRM.Controllers.CallLogsCascadeViewModel
+@{
+    ViewData["Title"] = "Логи дзвінків";
+}
+
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Логи дзвінків</h2>
+        <small class="text-muted">UTC time</small>
+    </div>
+
+    <form method="get" action="/calls/logs" class="row g-2 mb-3">
+        <div class="col-md-6">
+            <input class="form-control" name="q" value="@Model.Query" placeholder="Пошук: callId / caller / event / data" />
+        </div>
+        <div class="col-md-2">
+            <input class="form-control" name="days" type="number" min="1" max="90" value="@Model.Days" />
+        </div>
+        <div class="col-md-2">
+            <input class="form-control" name="maxCalls" type="number" min="20" max="2000" value="200" />
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary">Фільтрувати</button>
+        </div>
+    </form>
+
+    @if (Model.Calls.Count == 0)
+    {
+        <div class="alert alert-secondary">Логів не знайдено.</div>
+    }
+    else
+    {
+        <div class="accordion" id="callsAccordion">
+            @{
+                int idx = 0;
+            }
+            @foreach (var call in Model.Calls)
+            {
+                var collapseId = $"collapse_{idx}";
+                var headingId = $"heading_{idx}";
+                idx++;
+
+                <div class="accordion-item mb-2">
+                    <h2 class="accordion-header" id="@headingId">
+                        <button class="accordion-button collapsed" type="button"
+                                data-bs-toggle="collapse" data-bs-target="#@collapseId"
+                                aria-expanded="false" aria-controls="@collapseId">
+                            <div class="w-100 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>@(string.IsNullOrWhiteSpace(call.Caller) ? "(unknown)" : call.Caller)</strong>
+                                    <span class="text-muted ms-2">CallId: @call.CallId</span>
+                                </div>
+                                <div class="text-muted">
+                                    @call.FirstAtUtc.ToString("yyyy-MM-dd HH:mm:ss") →
+                                    @call.LastAtUtc.ToString("HH:mm:ss")
+                                    <span class="ms-2 badge bg-secondary">@call.Events.Count</span>
+                                </div>
+                            </div>
+                        </button>
+                    </h2>
+
+                    <div id="@collapseId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#callsAccordion">
+                        <div class="accordion-body">
+
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var e in call.Events)
+                                {
+                                    <li class="py-2 border-bottom">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <span class="badge bg-light text-dark me-2">@e.AtUtc.ToString("HH:mm:ss")</span>
+                                                <strong>@e.Event</strong>
+                                            </div>
+                                            <span class="text-muted small">@e.AtUtc.ToString("yyyy-MM-dd")</span>
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(e.Data))
+                                        {
+                                            <div class="ms-1 mt-1 text-muted" style="white-space: pre-wrap;">
+                                                @e.Data
+                                            </div>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

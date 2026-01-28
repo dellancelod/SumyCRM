@@ -24,6 +24,49 @@ namespace SumyCRM.Controllers
             _apiKey = config["OpenAI:ApiKey"];
         }
 
+        [HttpGet("log")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Log(
+            [FromQuery] string? callId,
+            [FromQuery] string? caller,
+            [FromQuery(Name = "event")] string? eventName,
+            [FromQuery] string? data,
+            [FromHeader(Name = "X-API-KEY")] string? apiKey,
+            CancellationToken ct)
+        {
+            string secret = _config["UploadSecret"];
+            if (apiKey != secret)
+                return Unauthorized("Invalid API Key");
+
+            if (string.IsNullOrWhiteSpace(eventName))
+                return BadRequest("Missing event");
+
+            // Asterisk can send empty callId/caller sometimes, keep it tolerant.
+            callId = (callId ?? "").Trim();
+            caller = (caller ?? "").Trim();
+            eventName = eventName.Trim();
+            data = (data ?? "").Trim();
+
+            // Optional safety: clamp lengths so nobody can flood DB with megabytes
+            if (callId.Length > 64) callId = callId.Substring(0, 64);
+            if (caller.Length > 32) caller = caller.Substring(0, 32);
+            if (eventName.Length > 128) eventName = eventName.Substring(0, 128);
+            if (data.Length > 1024) data = data.Substring(0, 1024);
+
+            var ev = new CallEvent
+            {
+                CallId = callId,
+                Caller = caller,
+                Event = eventName,
+                Data = data
+            };
+
+            _dataManager.CallEvents.SaveCallEventAsync(ev);
+
+            // Asterisk prefers simple responses
+            return Content("OK", "text/plain");
+        }
+
         [HttpPost("upload")]
         [AllowAnonymous]
         [IgnoreAntiforgeryToken] // для curl / Asterisk
