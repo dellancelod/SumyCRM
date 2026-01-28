@@ -15,7 +15,6 @@
                 Подій: <strong>@eventsCount</strong>
             </div>
         </div>
-        <small class="text-muted">UTC time</small>
     </div>
 
     <form method="get" action="/calls/logs" class="row g-2 mb-3 align-items-end">
@@ -24,12 +23,12 @@
             <input class="form-control" name="q" value="@Model.Query" placeholder="callId / caller / event / data" />
         </div>
 
-        <div class="col-md-2">
-            <label class="form-label mb-1">Днів назад</label>
-            <input class="form-control" name="days" type="number" min="1" max="90" value="@Model.Days" />
+        <div class="col-md-3">
+            <label class="form-label mb-1">Період (днів)</label>
+            <input class="form-control" name="days" type="number" min="1" max="370" value="@Model.Days" />
         </div>
 
-        <div class="col-md-2 d-grid">
+        <div class="col-md-3 d-grid">
             <label class="form-label mb-1">&nbsp;</label>
             <button class="btn btn-primary">Фільтрувати</button>
         </div>
