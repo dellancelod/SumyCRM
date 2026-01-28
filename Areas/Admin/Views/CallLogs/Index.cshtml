@@ -1,30 +1,46 @@
 ﻿@model SumyCRM.Controllers.CallLogsCascadeViewModel
 @{
     ViewData["Title"] = "Логи дзвінків";
+    var callsCount = Model?.Calls?.Count ?? 0;
+    var eventsCount = Model?.Calls?.Sum(c => c.Events?.Count ?? 0) ?? 0;
 }
 
 <div class="container py-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="mb-0">Логи дзвінків</h2>
+        <div>
+            <h2 class="mb-0">Логи дзвінків</h2>
+            <div class="text-muted mt-1">
+                Дзвінків: <strong>@callsCount</strong>
+                <span class="mx-2">•</span>
+                Подій: <strong>@eventsCount</strong>
+            </div>
+        </div>
         <small class="text-muted">UTC time</small>
     </div>
 
-    <form method="get" action="/calls/logs" class="row g-2 mb-3">
+    <form method="get" action="/calls/logs" class="row g-2 mb-3 align-items-end">
         <div class="col-md-6">
-            <input class="form-control" name="q" value="@Model.Query" placeholder="Пошук: callId / caller / event / data" />
+            <label class="form-label mb-1">Пошук</label>
+            <input class="form-control" name="q" value="@Model.Query" placeholder="callId / caller / event / data" />
         </div>
+
         <div class="col-md-2">
+            <label class="form-label mb-1">Днів назад</label>
             <input class="form-control" name="days" type="number" min="1" max="90" value="@Model.Days" />
         </div>
+
         <div class="col-md-2">
+            <label class="form-label mb-1">Макс. дзвінків</label>
             <input class="form-control" name="maxCalls" type="number" min="20" max="2000" value="200" />
         </div>
+
         <div class="col-md-2 d-grid">
+            <label class="form-label mb-1">&nbsp;</label>
             <button class="btn btn-primary">Фільтрувати</button>
         </div>
     </form>
 
-    @if (Model.Calls.Count == 0)
+    @if (callsCount == 0)
     {
         <div class="alert alert-secondary">Логів не знайдено.</div>
     }
@@ -61,7 +77,6 @@
 
                     <div id="@collapseId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#callsAccordion">
                         <div class="accordion-body">
-
                             <ul class="list-unstyled mb-0">
                                 @foreach (var e in call.Events)
                                 {
@@ -73,6 +88,7 @@
                                             </div>
                                             <span class="text-muted small">@e.AtUtc.ToString("yyyy-MM-dd")</span>
                                         </div>
+
                                         @if (!string.IsNullOrWhiteSpace(e.Data))
                                         {
                                             <div class="ms-1 mt-1 text-muted" style="white-space: pre-wrap;">
@@ -82,7 +98,6 @@
                                     </li>
                                 }
                             </ul>
-
                         </div>
                     </div>
                 </div>
