@@ -25,7 +25,7 @@ namespace SumyCRM.Controllers
             [FromQuery] int days = 7,
             CancellationToken ct = default)
         {
-            days = Math.Clamp(days, 1, 90);
+            days = Math.Clamp(days, 1, 370);
 
             var sinceUtc = DateTime.UtcNow.AddDays(-days);
 
