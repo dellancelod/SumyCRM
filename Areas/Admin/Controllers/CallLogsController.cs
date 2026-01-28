@@ -23,11 +23,9 @@ namespace SumyCRM.Controllers
         public async Task<IActionResult> Index(
             [FromQuery] string? q,
             [FromQuery] int days = 7,
-            [FromQuery] int maxCalls = 200,
             CancellationToken ct = default)
         {
             days = Math.Clamp(days, 1, 90);
-            maxCalls = Math.Clamp(maxCalls, 20, 2000);
 
             var sinceUtc = DateTime.UtcNow.AddDays(-days);
 
@@ -53,7 +51,6 @@ namespace SumyCRM.Controllers
                     LastAt = g.Max(x => x.DateAdded)
                 })
                 .OrderByDescending(x => x.LastAt)
-                .Take(maxCalls)
                 .ToListAsync(ct);
 
             var callIds = callHeads.Select(x => x.CallId).ToList();
