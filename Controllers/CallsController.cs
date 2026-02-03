@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using OpenAI.Audio;
 using SumyCRM.Data;
 using SumyCRM.Models;
-using static SumyCRM.Services.TranscriptService;
+using SumyCRM.Services;
 using static SumyCRM.Services.CategoryConverter;
-using Microsoft.EntityFrameworkCore;
+using static SumyCRM.Services.TranscriptService;
 
 namespace SumyCRM.Controllers
 {
@@ -16,12 +17,13 @@ namespace SumyCRM.Controllers
         private readonly string _apiKey;
         private readonly DataManager _dataManager;
         private readonly IConfiguration _config;
-
-        public CallsController(DataManager dataManager, IConfiguration config)
+        private readonly IGeocodingService _geo;
+        public CallsController(DataManager dataManager, IConfiguration config, IGeocodingService geo)
         {
             _config = config;
             _dataManager = dataManager;
             _apiKey = config["OpenAI:ApiKey"];
+            _geo = geo;
         }
 
         [HttpGet("log")]
@@ -61,10 +63,73 @@ namespace SumyCRM.Controllers
                 Data = data
             };
 
-            _dataManager.CallEvents.SaveCallEventAsync(ev);
+            await _dataManager.CallEvents.SaveCallEventAsync(ev);
 
             // Asterisk prefers simple responses
             return Content("OK", "text/plain");
+        }
+
+        [HttpPost("validate-address")]
+        [AllowAnonymous]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> ValidateAddress(
+            [FromForm] IFormFile audioAddress,
+            [FromHeader(Name = "X-API-KEY")] string? apiKey,
+            CancellationToken ct)
+        {
+            string secret = _config["UploadSecret"];
+            if (apiKey != secret)
+                return Unauthorized("Invalid API Key");
+
+            if (audioAddress == null || audioAddress.Length == 0)
+                return BadRequest("No audio address");
+
+            string? tmpPath = null;
+            string? whisperPath = null;
+
+            try
+            {
+                // save temp
+                var tmpFolder = Path.Combine(Path.GetTempPath(), "sumycrm_calls");
+                Directory.CreateDirectory(tmpFolder);
+
+                tmpPath = Path.Combine(tmpFolder, $"{Guid.NewGuid()}_{Path.GetFileName(audioAddress.FileName)}");
+
+                await using (var fs = new FileStream(tmpPath, FileMode.Create))
+                    await audioAddress.CopyToAsync(fs, ct);
+
+                // Whisper -> text address
+                AudioClient audioClient = new("whisper-1", _apiKey);
+
+                AudioTranscriptionOptions addressOptions = new()
+                {
+                    Language = "uk",
+                    ResponseFormat = AudioTranscriptionFormat.Text,
+                    Temperature = 0.0f,
+                    Prompt =
+                        "Розпізнай ТІЛЬКИ адресу в місті Суми (Україна). " +
+                        "Формат: 'вул. ..., буд. ..., кв. ...' або 'просп. ..., буд. ...'. " +
+                        "Збережи всі цифри, дроби (наприклад 12/1), корпуси, під'їзд. " +
+                        "Без зайвих фраз."
+                };
+
+                whisperPath = await ConvertToWhisperWavAsync(tmpPath, ct);
+
+                AudioTranscription tr = await audioClient.TranscribeAudioAsync(whisperPath, addressOptions);
+                var addrText = CleanTranscript(tr.Text);
+
+                // Validate via Nominatim (only Sumy results are accepted in your service)
+                var geo = await _geo.GeocodeAsync(addrText, ct);
+
+                // Asterisk-friendly plain response:
+                // "1" = OK, "0" = not found -> ask user to repeat
+                return Content(geo != null ? "1" : "0", "text/plain");
+            }
+            finally
+            {
+                SafeDelete(tmpPath);
+                SafeDelete(whisperPath);
+            }
         }
 
         [HttpPost("upload")]
