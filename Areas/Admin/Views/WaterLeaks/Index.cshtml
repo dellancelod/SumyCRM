@@ -13,8 +13,17 @@
 
                     <div class="mb-2">
                         <label class="form-label">Адреса</label>
-                        <input id="addr" class="form-control"
-                               placeholder="наприклад Харківська 10 або Харківська" />
+
+                        <div class="position-relative">
+                            <input id="addr" class="form-control"
+                                   autocomplete="off" spellcheck="false"
+                                   placeholder="наприклад Харківська 10 або Харківська" />
+
+                            <div id="addrSuggest"
+                                 class="list-group position-absolute w-100 shadow"
+                                 style="z-index: 2000; display: none; max-height: 240px; overflow: auto;">
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mb-2">
@@ -67,6 +76,13 @@
     const pointsUrl = '@Url.Action("Points", "WaterLeaks", new { area = "Admin" })';
     const createUrl = '@Url.Action("Create", "WaterLeaks", new { area = "Admin" })';
     const deleteUrl = '@Url.Action("Delete", "WaterLeaks", new { area = "Admin" })';
+    const deleteAllUrl = '@Url.Action("DeleteAll", "WaterLeaks", new { area = "Admin" })';
+
+    // ✅ street suggest endpoint
+    // If you use attribute routes: /admin/addresses/suggest?term=
+    // If you use default routes, you can also do:
+    // const suggestUrl = '@Url.Action("Suggest", "Addresses", new { area = "Admin" })' + '?term=';
+    const suggestUrl = '/admin/addresses/suggest?term=';
 
     const map = L.map('map').setView([50.9077, 34.7981], 12);
 
@@ -101,7 +117,6 @@
     }
 
     function drawPoint(p) {
-        // red dot
         const layer = L.circleMarker([p.lat, p.lon], {
             radius: 7,
             color: "red",
@@ -240,16 +255,149 @@
         renderLeaksList(points);
     }
 
-    const deleteAllUrl = '@Url.Action("DeleteAll", "WaterLeaks", new { area = "Admin" })';
+    // ============================
+    // ✅ Address suggestions for #addr
+    // ============================
+    (function initAddrSuggest() {
+        const input = document.getElementById("addr");
+        const box = document.getElementById("addrSuggest");
 
-        document.getElementById("btnDeleteAll").addEventListener("click", async () => {
+        let timer = null;
+        let aborter = null;
+        let items = [];
+        let active = -1;
+
+        function show() { box.style.display = "block"; }
+        function hide() {
+            box.style.display = "none";
+            box.innerHTML = "";
+            items = [];
+            active = -1;
+        }
+
+        function streetPart(v) {
+            // before comma, and also before house number: "Харківська 10" -> "Харківська"
+            const first = (v || "").split(",")[0].trim();
+
+            // If user typed "лушп 10" we still want "лушп"
+            // Take only letters/spaces/dots/dashes (UA/RU/EN), stop at first digit
+            const m = first.match(/^[^\d]+/);
+            return (m ? m[0] : first).trim();
+        }
+
+        function keepTail(original) {
+            // Keep everything AFTER the street name user typed (e.g., "Харківська 10, кв 2")
+            // We'll replace only the first "streetPart" chunk.
+            const sp = streetPart(original);
+            if (!sp) return "";
+            return original.substring(sp.length); // includes spaces + numbers etc
+        }
+
+        function setActive(idx) {
+            const children = box.querySelectorAll(".list-group-item");
+            children.forEach(x => x.classList.remove("active"));
+            if (idx < 0 || idx >= children.length) { active = -1; return; }
+            active = idx;
+            children[idx].classList.add("active");
+            children[idx].scrollIntoView({ block: "nearest" });
+        }
+
+        async function fetchSuggest(term) {
+            if (aborter) aborter.abort();
+            aborter = new AbortController();
+
+            const res = await fetch(suggestUrl + encodeURIComponent(term), {
+                method: "GET",
+                headers: { "Accept": "application/json" },
+                signal: aborter.signal
+            });
+
+            if (!res.ok) return [];
+            const data = await res.json();
+            return Array.isArray(data) ? data : (data.items || []);
+        }
+
+        function render(list) {
+            box.innerHTML = "";
+            items = list || [];
+            active = -1;
+
+            if (!items.length) { hide(); return; }
+
+            items.forEach((s) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "list-group-item list-group-item-action";
+                btn.textContent = s;
+
+                btn.addEventListener("mousedown", (e) => {
+                    e.preventDefault(); // prevent blur before select
+                    const tail = keepTail(input.value);
+                    input.value = s + tail;
+                    hide();
+                    input.focus();
+                });
+
+                box.appendChild(btn);
+            });
+
+            show();
+        }
+
+        async function onInput() {
+            const part = streetPart(input.value);
+            if (!part || part.length < 2) { hide(); return; }
+
+            try {
+                const list = await fetchSuggest(part);
+                render(list.slice(0, 12));
+            } catch {
+                // ignore aborts
+            }
+        }
+
+        input.addEventListener("input", () => {
+            clearTimeout(timer);
+            timer = setTimeout(onInput, 180);
+        });
+
+        input.addEventListener("keydown", (e) => {
+            if (box.style.display === "none") return;
+            if (!items.length) return;
+
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                setActive(active + 1 >= items.length ? 0 : active + 1);
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                setActive(active - 1 < 0 ? items.length - 1 : active - 1);
+            } else if (e.key === "Enter") {
+                if (active >= 0 && active < items.length) {
+                    e.preventDefault();
+                    const tail = keepTail(input.value);
+                    input.value = items[active] + tail;
+                    hide();
+                }
+            } else if (e.key === "Escape") {
+                hide();
+            }
+        });
+
+        input.addEventListener("blur", () => setTimeout(hide, 120));
+        document.addEventListener("click", (e) => {
+            if (!box.contains(e.target) && e.target !== input) hide();
+        });
+    })();
+
+    // ============================
+    // Delete all
+    // ============================
+    document.getElementById("btnDeleteAll").addEventListener("click", async () => {
         if (!confirm("Ви впевнені, що хочете видалити ВСІ відключення?")) return;
 
         msg("Видалення всіх відключень...");
 
-        const res = await fetch(deleteAllUrl, {
-            method: "POST"
-        });
+        const res = await fetch(deleteAllUrl, { method: "POST" });
 
         const text = await res.text();
         let data = {};
@@ -260,21 +408,20 @@
             return;
         }
 
-        // 🧹 очистить карту
-        for (const layer of layersById.values()) {
-            map.removeLayer(layer);
-        }
+        for (const layer of layersById.values()) map.removeLayer(layer);
         layersById.clear();
 
-        // 🧹 очистить список
         leaksListEl.innerHTML = "";
         leaksEmptyEl.classList.remove("d-none");
 
         msg(`Видалено: ${data.deleted ?? "всі"} відключень`);
     });
 
+    // ============================
+    // Create leak
+    // ============================
     document.getElementById("leakForm").addEventListener("submit", async (e) => {
-        e.preventDefault(); // 🚫 stop page reload
+        e.preventDefault();
 
         const address = document.getElementById("addr").value.trim();
         const notes = document.getElementById("notes").value.trim();
@@ -318,7 +465,7 @@
         }
 
         msg("Додано!");
-        e.target.reset(); // ✅ clears inputs
+        e.target.reset();
 
         await loadPoints();
     });

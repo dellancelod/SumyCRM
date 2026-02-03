@@ -1,27 +1,23 @@
-﻿@model SumyCRM.Models.Request
+﻿@using SumyCRM.Models
+@model SumyCRM.Models.Request
 @{
     Layout = null;
 
     var dt = Model.DateAdded.ToLocalTime();
-    int year = dt.Year;
     string dateStr = dt.ToString("dd.MM.yyyy");
     string timeStr = dt.ToString("HH:mm");
 
-    string pib = string.IsNullOrWhiteSpace(Model.Name) ? "" : Model.Name.Trim();
-    string address = string.IsNullOrWhiteSpace(Model.Address) ? "" : Model.Address.Trim();
-    string phone = string.IsNullOrWhiteSpace(Model.Caller) ? "" : Model.Caller.Trim();
+    string informedDate = Model.CustomerInformedOn?.ToString("yyyy-MM-dd") ?? "";
+    string completedDate = Model.CompletedOn?.ToString("yyyy-MM-dd") ?? "";
 
-    string executor = (Model.Facility == null || string.IsNullOrWhiteSpace(Model.Facility.Name))
-        ? ""
-        : Model.Facility.Name.Trim();
-
-    var text = string.IsNullOrWhiteSpace(Model.Text) ? "" : Model.Text.Trim();
+    var facilities = ViewBag.Facilities as List<Facility> ?? new List<Facility>();
 }
 <!doctype html>
 <html lang="uk">
 <head>
     <meta charset="utf-8" />
     <title>Лист звернення №@Model.RequestNumber</title>
+
     <style>
         @@page {
             margin: 15mm;
@@ -49,10 +45,6 @@
             text-align: center;
         }
 
-        .right {
-            text-align: right;
-        }
-
         .row {
             display: flex;
             justify-content: space-between;
@@ -71,10 +63,6 @@
             margin-top: 24px;
         }
 
-        .mt-32 {
-            margin-top: 32px;
-        }
-
         .field-label {
             font-weight: 700;
         }
@@ -83,8 +71,9 @@
             font-size: 12pt;
         }
 
-        /* ===== editable lines ===== */
-        .line-input {
+        .line-input,
+        .line-select,
+        .line-date {
             width: 100%;
             border: none;
             border-bottom: 1px solid #000;
@@ -92,49 +81,30 @@
             font: inherit;
             background: transparent;
             padding: 2px 2px 0 2px;
-            min-height: 20px;
         }
 
-            .line-input.datew {
-                display: inline-block;
-                width: 20px;
-                vertical-align: baseline;
+            .line-input.smallw,
+            .line-date.smallw {
+                width: 120px;
             }
 
-            .line-input.smallw {
-                display: inline-block;
-                width: 90px;
-                vertical-align: baseline;
-            }
-
-            .line-input.midw {
-                display: inline-block;
-                width: 260px;
-                vertical-align: baseline;
-            }
-
-        /* Multi-line “lined paper” textarea */
         .line-area {
             width: 100%;
             font: inherit;
             background: transparent;
             outline: none;
             border: none;
-            /* draw lines */
             line-height: 28px;
             padding: 4px 2px;
             background-image: linear-gradient(to bottom, transparent 27px, #000 27px, #000 28px);
             background-size: 100% 28px;
             background-repeat: repeat-y;
-            /* keep text inside */
             resize: none;
             overflow: hidden;
-            /* IMPORTANT: keep lines visible when printing */
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
 
-        /* Signature blocks */
         .sig {
             width: 48%;
         }
@@ -143,114 +113,120 @@
             width: 100%;
             border: none;
             border-bottom: 1px solid #000;
-            outline: none;
-            font: inherit;
             background: transparent;
             height: 20px;
         }
     </style>
 </head>
+
 <body>
     <div class="no-print">
-        <button onclick="window.print()">🖨️ Друкувати</button>
-        <button onclick="window.close()">✖ Закрити</button>
+        <button type="button" onclick="window.print()">🖨️ Друкувати</button>
+        <button type="button" onclick="window.close()">✖ Закрити</button>
+        <button type="submit" form="printForm">💾 Зберегти</button>
     </div>
 
-    <div class="center">
-        <div><b>СУМСЬКА МІСЬКА РАДА</b></div>
-        <div><b>УПРАВЛІННЯ ТРАНСПОРТУ, ТРАНСПОРТНОЇ ІНФРАСТРУКТУРИ ТА ЗВ'ЯЗКУ</b></div>
-        <div><b>Відділ «Інформаційний центр»</b></div>
-    </div>
+    <form id="printForm" method="post" action="/Admin/Requests/UpdatePrintFields">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.Id" />
 
-    <div class="mt-18 row">
-        <div>
-            <span class="field-label">№</span>
-            <input class="line-input smallw" value="@Model.RequestNumber" />
+        <div class="center">
+            <b>СУМСЬКА МІСЬКА РАДА</b><br />
+            <b>УПРАВЛІННЯ ТРАНСПОРТУ, ТРАНСПОРТНОЇ ІНФРАСТРУКТУРИ ТА ЗВ'ЯЗКУ</b><br />
+            <b>Відділ «Інформаційний центр»</b>
         </div>
-        <div>
-            <span class="field-label">дата</span>
-            <input class="line-input smallw" value="@dateStr" />
-            <span class="small">р.</span>
-        </div>
-    </div>
-
-    <div class="mt-12">
-        <span class="field-label">Час</span>
-        <input class="line-input smallw" value="@timeStr" />
-        <span class="small">год.</span>
-    </div>
-
-    <div class="mt-18">
-        <span class="field-label">Прізвище, ім'я, по батькові</span><br />
-        <input class="line-input" value="@pib" placeholder="" />
-    </div>
-
-    <div class="mt-12">
-        <span class="field-label">Адреса замовника</span><br />
-        <input class="line-input" value="@address" />
-    </div>
-
-    <div class="mt-12">
-        <span class="field-label">Телефон</span>
-        <input class="line-input midw" value="@phone" />
-    </div>
-
-    <div class="mt-12">
-        <span class="field-label">Виконавець</span><br />
-        <input class="line-input" value="@executor" />
-    </div>
-
-    <div class="mt-18">
-        <div class="field-label">Зміст пропозицій, заявки, скарги</div>
-        <!-- 5 lines worth of space -->
-        <textarea class="line-area" rows="5">@text</textarea>
-    </div>
-
-    <div class="mt-12">
-        <span class="field-label">Кому передано для виконання</span><br />
-        <textarea class="line-area" rows="2"></textarea>
-    </div>
-
-    <div class="mt-12">
-        <div class="field-label">Інформація про хід виконання і завершення роботи</div>
-        <textarea class="line-area" rows="3"></textarea>
-    </div>
-
-    <div class="mt-12">
-        <span class="field-label">Замовнику роз'яснено, повідомлено</span>
-    </div>
-
-    <div class="mt-12">
-        «<input class="line-input datew" value="" />»
-        <input class="line-input smallw" value="" />
-        @year р.
-    </div>
-
-    <div class="mt-12">
-        <span class="field-label">Його відгук</span>
-        <textarea class="line-area" rows="3"></textarea>
-    </div>
-
-    <div class="mt-18">
-        <span class="field-label">Дата виконання</span>
-        «<input class="line-input datew" value="" />»
-        <input class="line-input smallw" value="" />
-        @year р.
-    </div>
-
-    <div class="mt-24">
-        <div class="field-label">Головний спеціаліст відділу «Інформаційний центр»</div>
 
         <div class="mt-18 row">
-            <div class="sig center">
-                <input class="sigline" />
-                <div class="small">(підпис)</div>
+            <div>
+                <span class="field-label">№</span>
+                <input class="line-input smallw" name="RequestNumber" value="@Model.RequestNumber" />
             </div>
-            <div class="sig center">
-                <input class="sigline" />
-                <div class="small">(П.І.Б.)</div>
+            <div>
+                <span class="field-label">Дата</span>
+                <input class="line-input smallw" value="@dateStr" readonly />
             </div>
         </div>
-    </div>
+
+        <div class="mt-12">
+            <span class="field-label">Час</span>
+            <input class="line-input smallw" value="@timeStr" readonly />
+        </div>
+
+        <div class="mt-18">
+            <span class="field-label">ПІБ</span>
+            <input class="line-input" name="Name" value="@Model.Name" />
+        </div>
+
+        <div class="mt-12">
+            <span class="field-label">Адреса</span>
+            <input class="line-input" name="Address" value="@Model.Address" />
+        </div>
+
+        <div class="mt-12">
+            <span class="field-label">Телефон</span>
+            <input class="line-input" name="Caller" value="@Model.Caller" />
+        </div>
+
+        <div class="mt-12">
+            <span class="field-label">Виконавець</span>
+            <select class="line-select" name="FacilityId">
+                @foreach (var f in facilities)
+                {
+                    <option value="@f.Id" selected="@(f.Id == Model.FacilityId)">
+                        @f.Name
+                    </option>
+                }
+            </select>
+        </div>
+
+        <div class="mt-18">
+            <span class="field-label">Зміст пропозицій, заявки, скарги</span>
+            <textarea class="line-area" rows="5" name="Text">@Model.Text</textarea>
+        </div>
+
+        <div class="mt-12">
+            <span class="field-label">Кому передано для виконання</span>
+            <textarea class="line-area" rows="2" name="ForwardedTo">@Model.ForwardedTo</textarea>
+        </div>
+
+        <div class="mt-12">
+            <span class="field-label">Інформація про хід виконання і завершення роботи</span>
+            <textarea class="line-area" rows="5" name="ExecutionProgressInfo">@Model.ExecutionProgressInfo</textarea>
+        </div>
+
+        <div class="mt-12">
+            <span class="field-label">Замовнику роз'яснено, повідомлено</span>
+            <input type="date" class="line-date smallw" name="CustomerInformedOn" value="@informedDate" />
+        </div>
+
+        <div class="mt-12">
+            <span class="field-label">Його відгук</span>
+            <textarea class="line-area" rows="3" name="CustomerFeedback">@Model.CustomerFeedback</textarea>
+        </div>
+
+        <div class="mt-18">
+            <span class="field-label">Дата виконання</span>
+            <input type="date" class="line-date smallw" name="CompletedOn" value="@completedDate" />
+        </div>
+
+        <div class="mt-24">
+            <div class="field-label">Головний спеціаліст відділу «Інформаційний центр»</div>
+
+            <div class="mt-18 row">
+                <div class="sig center">
+                    <input class="sigline" />
+                    <div class="small">(підпис)</div>
+                </div>
+                <div class="sig center">
+                    <input class="sigline" />
+                    <div class="small">(П.І.Б.)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="no-print mt-18">
+            <button type="submit">💾 Зберегти</button>
+        </div>
+    </form>
 </body>
 </html>

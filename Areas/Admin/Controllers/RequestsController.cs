@@ -1,12 +1,13 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SumyCRM.Areas.Admin.Models;
 using SumyCRM.Data;
 using SumyCRM.Models;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
+using System.ComponentModel.DataAnnotations;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
@@ -856,12 +857,28 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             if (model == null) return NotFound();
 
-            // (необов’язково) доступ по facility як в інших місцях
+            // access control (same as other places)
             var q = ApplyFacilityAccessFilter(BaseQuery().Where(x => x.Id == id));
             var allowed = await q.AnyAsync();
             if (!allowed) return Forbid();
 
-            return View("Print", model); // Views/Admin/Requests/Print.cshtml
+            // ✅ Facilities list for dropdown (with access filter for non-admin)
+            var facilitiesQuery = dataManager.Facilities.GetFacilities().AsQueryable();
+
+            if (!User.IsInRole("admin"))
+            {
+                var userId = GetUserId();
+                facilitiesQuery = facilitiesQuery.Where(f =>
+                    dataManager.UserFacilities.GetUserFacilities()
+                        .Any(uf => uf.UserId == userId && uf.FacilityId == f.Id)
+                );
+            }
+
+            ViewBag.Facilities = await facilitiesQuery
+                .OrderBy(f => f.Name)
+                .ToListAsync();
+
+            return View("Print", model);
         }
         [HttpGet]
         public async Task<IActionResult> PrintList(
@@ -927,6 +944,65 @@ namespace SumyCRM.Areas.Admin.Controllers
             ViewBag.SelectedFacilityId = facilityId;     
 
             return View("PrintAllList", list); // create view
+        }
+        public class PrintFieldsDto
+        {
+            // base
+            public int RequestNumber { get; set; }
+            public string? Name { get; set; }
+            public string? Address { get; set; }
+            public string? Caller { get; set; }
+            public string? Text { get; set; }
+
+            // facility
+            public Guid FacilityId { get; set; }
+
+            // print fields
+            public string? ForwardedTo { get; set; }
+            public string? ExecutionProgressInfo { get; set; }
+            public string? CustomerFeedback { get; set; }
+
+            // ✅ real datetime
+            public DateTime? CustomerInformedOn { get; set; }
+            public DateTime? CompletedOn { get; set; }
+        }
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdatePrintFields(Guid id, PrintFieldsDto dto)
+        {
+            var allowed = await ApplyFacilityAccessFilter(
+                BaseQuery().Where(x => x.Id == id)
+            ).AnyAsync();
+
+            if (!allowed) return Forbid();
+
+            var entity = await dataManager.Requests.GetRequestByIdAsync(id);
+            if (entity == null) return NotFound();
+
+            // base fields
+            entity.RequestNumber = dto.RequestNumber;
+            entity.Name = dto.Name?.Trim();
+            entity.Address = dto.Address?.Trim();
+            entity.Caller = dto.Caller?.Trim();
+            entity.Text = dto.Text?.Trim();
+
+            // facility
+            entity.FacilityId = dto.FacilityId;
+
+            // print fields
+            entity.ForwardedTo = dto.ForwardedTo?.Trim();
+            entity.ExecutionProgressInfo = dto.ExecutionProgressInfo?.Trim();
+            entity.CustomerFeedback = dto.CustomerFeedback?.Trim();
+            entity.CustomerInformedOn = dto.CustomerInformedOn;
+            entity.CompletedOn = dto.CompletedOn;
+
+            await dataManager.Requests.SaveRequestAsync(entity);
+
+            TempData["ToastMessage"] =
+                $"Дані друк-форми для звернення №{entity.RequestNumber} збережено.";
+            TempData["ToastType"] = "success";
+
+            return RedirectToAction(nameof(Print), new { id });
         }
     }
 }

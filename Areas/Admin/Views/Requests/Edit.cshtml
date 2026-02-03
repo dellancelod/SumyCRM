@@ -47,7 +47,22 @@
 
     <div class="col-md-6">
         <label class="form-label">Адреса</label>
-        <input asp-for="Address" class="form-control" />
+
+        <div class="position-relative">
+            <input asp-for="Address"
+                   id="addressInput"
+                   class="form-control"
+                   autocomplete="off"
+                   spellcheck="false"
+                   aria-autocomplete="list"
+                   aria-expanded="false" />
+
+            <div id="addressSuggest"
+                 class="list-group position-absolute w-100 shadow"
+                 style="z-index: 2000; display: none; max-height: 240px; overflow: auto;">
+            </div>
+        </div>
+
         <span asp-validation-for="Address" class="text-danger"></span>
     </div>
 
@@ -86,4 +101,178 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (function () {
+            const input = document.getElementById('addressInput');
+            const box = document.getElementById('addressSuggest');
+
+            // change this if your route is different:
+            const suggestUrl = '/Admin/Addresses/Suggest?term=';
+
+            let aborter = null;
+            let timer = null;
+            let activeIndex = -1;
+            let currentItems = [];
+
+            function showBox() {
+                if (!box) return;
+                box.style.display = 'block';
+                input.setAttribute('aria-expanded', 'true');
+            }
+
+            function hideBox() {
+                if (!box) return;
+                box.style.display = 'none';
+                input.setAttribute('aria-expanded', 'false');
+                activeIndex = -1;
+                currentItems = [];
+                box.innerHTML = '';
+            }
+
+            function getStreetPart(value) {
+                // We suggest by first part before comma:
+                // "Хар, 12" -> term "Хар"
+                const parts = (value || '').split(',');
+                return (parts[0] || '').trim();
+            }
+
+            function buildNewValue(selectedStreet) {
+                // Keep what user typed after the first comma, if any
+                const raw = input.value || '';
+                const commaIndex = raw.indexOf(',');
+                if (commaIndex >= 0) {
+                    const tail = raw.substring(commaIndex); // includes comma
+                    return selectedStreet + tail;
+                }
+                return selectedStreet;
+            }
+
+            function render(items) {
+                box.innerHTML = '';
+                currentItems = items || [];
+                activeIndex = -1;
+
+                if (!currentItems.length) {
+                    hideBox();
+                    return;
+                }
+
+                for (let i = 0; i < currentItems.length; i++) {
+                    const s = currentItems[i];
+
+                    const a = document.createElement('button');
+                    a.type = 'button';
+                    a.className = 'list-group-item list-group-item-action';
+                    a.textContent = s;
+
+                    a.addEventListener('mousedown', function (e) {
+                        // mousedown to avoid blur hiding before click
+                        e.preventDefault();
+                        input.value = buildNewValue(s);
+                        hideBox();
+                        input.focus();
+                    });
+
+                    box.appendChild(a);
+                }
+
+                showBox();
+            }
+
+            function setActive(index) {
+                const children = box.querySelectorAll('.list-group-item');
+                children.forEach(x => x.classList.remove('active'));
+
+                if (index < 0 || index >= children.length) {
+                    activeIndex = -1;
+                    return;
+                }
+
+                activeIndex = index;
+                children[index].classList.add('active');
+
+                // ensure visible
+                const el = children[index];
+                const top = el.offsetTop;
+                const bottom = top + el.offsetHeight;
+                if (top < box.scrollTop) box.scrollTop = top;
+                else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight;
+            }
+
+            async function fetchSuggest(term) {
+                if (aborter) aborter.abort();
+                aborter = new AbortController();
+
+                const resp = await fetch(suggestUrl + encodeURIComponent(term), {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    signal: aborter.signal
+                });
+
+                if (!resp.ok) return [];
+
+                const data = await resp.json();
+
+                // support either: ["Харківська", ...] or { items: [...] }
+                if (Array.isArray(data)) return data;
+                if (data && Array.isArray(data.items)) return data.items;
+
+                return [];
+            }
+
+            async function onInput() {
+                const term = getStreetPart(input.value);
+
+                if (!term || term.length < 2) {
+                    hideBox();
+                    return;
+                }
+
+                try {
+                    const items = await fetchSuggest(term);
+                    render(items.slice(0, 12));
+                } catch (e) {
+                    // aborted is fine
+                }
+            }
+
+            input.addEventListener('input', function () {
+                clearTimeout(timer);
+                timer = setTimeout(onInput, 200);
+            });
+
+            input.addEventListener('keydown', function (e) {
+                if (box.style.display === 'none') return;
+
+                const max = currentItems.length;
+                if (!max) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActive(activeIndex + 1 >= max ? 0 : activeIndex + 1);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActive(activeIndex - 1 < 0 ? max - 1 : activeIndex - 1);
+                } else if (e.key === 'Enter') {
+                    if (activeIndex >= 0 && activeIndex < currentItems.length) {
+                        e.preventDefault();
+                        input.value = buildNewValue(currentItems[activeIndex]);
+                        hideBox();
+                    }
+                } else if (e.key === 'Escape') {
+                    hideBox();
+                }
+            });
+
+            input.addEventListener('blur', function () {
+                // small delay so mousedown can fire
+                setTimeout(hideBox, 120);
+            });
+
+            document.addEventListener('click', function (e) {
+                if (!box.contains(e.target) && e.target !== input) hideBox();
+            });
+        })();
+    </script>
 }

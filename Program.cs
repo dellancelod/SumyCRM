@@ -23,6 +23,8 @@ builder.Services.AddTransient<ICallEventsRepository, EFCallEventsRepository>();
 builder.Services.AddHttpClient<IScheduleAudioService, ScheduleAudioService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddScoped<IGeocodingService, NominatimGeocodingService>();
+builder.Services.AddScoped<ISumyStreetImportService, SumyStreetImportService>();
+builder.Services.AddHostedService<PeriodicSumyStreetRefreshHostedService>();
 
 builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options
@@ -42,6 +44,7 @@ builder.Services.AddHttpClient("nominatim", client =>
 
 builder.Services.AddHttpClient("overpass", client =>
 {
+    client.BaseAddress = new Uri("https://overpass-api.de/api/");
     client.Timeout = TimeSpan.FromSeconds(25);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("SumyCRM/1.0 (contact: admin@giftsbakery.com.ua)");
 });

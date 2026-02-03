@@ -19,7 +19,10 @@
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-column flex-md-row gap-2">
-    <h2 class="mb-2 mb-md-0">Всі звернення</h2>
+    <h2 class="mb-2 mb-md-0">
+        Всі звернення
+        <span class="badge text-black align-middle ms-2" id="requestsCountBadge">0</span>
+    </h2>
 
     <div class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center gap-2 ms-md-auto">
 
@@ -87,7 +90,7 @@
     <div class="col-md-2 d-flex gap-2">
         <button type="submit" class="btn btn-primary btn-sm w-100">Застосувати</button>
         <a class="btn btn-outline-secondary btn-sm w-100"
-           href="@Url.Action("All","Requests",new{area="Admin", categoryId=(Guid?)null, facilityId=(Guid?)null, dateFrom=(string?)null, dateTo=(string?)null})">
+           href="@Url.Action("All", "Requests", new { area = "Admin", categoryId = (Guid?)null, facilityId = (Guid?)null, dateFrom = (string?)null, dateTo = (string?)null })">
             Скинути
         </a>
     </div>
@@ -148,21 +151,21 @@
             <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="toast"></button>
         </div>
 
-        <!-- progress bar -->
         <div class="progress" style="height:4px;">
             <div id="opToastProgress" class="progress-bar" role="progressbar"></div>
         </div>
     </div>
 </div>
+
 @section Scripts {
     <script>
         (function () {
           const message = @Html.Raw(
-                    System.Text.Json.JsonSerializer.Serialize(
-                        TempData["ToastMessage"]?.ToString() ?? ""
-                    )
-                );
-          const type = '@(TempData["ToastType"]?.ToString() ?? "success")';
+                                    System.Text.Json.JsonSerializer.Serialize(
+                                            TempData["ToastMessage"]?.ToString() ?? ""
+                                    )
+                            );
+      const type = '@(TempData["ToastType"]?.ToString() ?? "success")';
 
           if (!message) return;
 
@@ -172,41 +175,27 @@
           const progressEl = document.getElementById('opToastProgress');
           if (!toastEl || !toastText || !toastIcon || !progressEl) return;
 
-          // styles by type
           toastEl.classList.remove('text-bg-success','text-bg-danger','text-bg-warning','text-bg-info');
           toastEl.classList.add(`text-bg-${type}`);
 
-          // icon by type
-          const iconMap = {
-            success: '✅',
-            danger: '❌',
-            warning: '⚠️',
-            info: 'ℹ️'
-          };
+          const iconMap = { success: '✅', danger: '❌', warning: '⚠️', info: 'ℹ️' };
           toastIcon.textContent = iconMap[type] || '✅';
 
           toastText.textContent = message;
 
-          const delay = 2500; // ms
-
+          const delay = 2500;
           const toast = new bootstrap.Toast(toastEl, { autohide: true, delay });
 
-          // reset + animate progress
-        function startProgress() {
-          progressEl.style.transition = 'none';
-          progressEl.style.width = '100%';
+          function startProgress() {
+            progressEl.style.transition = 'none';
+            progressEl.style.width = '100%';
+            setTimeout(() => {
+              progressEl.style.transition = `width ${delay}ms linear`;
+              progressEl.style.width = '0%';
+            }, 30);
+          }
 
-          // маленька пауза, щоб браузер "побачив" 100% перед анімацією
-          setTimeout(() => {
-            progressEl.style.transition = `width ${delay}ms linear`;
-            progressEl.style.width = '0%';
-          }, 30);
-        }
-
-          // when shown -> run progress
           toastEl.addEventListener('shown.bs.toast', startProgress);
-
-          // when hidden -> cleanup for next time
           toastEl.addEventListener('hidden.bs.toast', () => {
             progressEl.style.transition = 'none';
             progressEl.style.width = '0%';
@@ -215,6 +204,7 @@
           toast.show();
         })();
     </script>
+
     <script>
         let formToSubmit = null;
 
@@ -236,6 +226,7 @@
             });
         });
     </script>
+
     <script>
         (function(){
             const btn = document.getElementById('btnPrintList');
@@ -265,262 +256,255 @@
             });
         })();
     </script>
+
     <script>
-    (function(){
-        const state = {
-            page: 1,
-            term: ''
-        };
-        const searchInput = document.getElementById('requestSearch');
-        const tableBody = document.getElementById('requestsTableBody');
-        const filtersForm = document.getElementById('filtersForm');
+        (function(){
+            const state = { page: 1, term: '' };
+            const searchInput = document.getElementById('requestSearch');
+            const tableBody = document.getElementById('requestsTableBody');
+            const filtersForm = document.getElementById('filtersForm');
+            const badge = document.getElementById('requestsCountBadge');
 
-        const isAdmin = @User.IsInRole("admin").ToString().ToLower();
-        let typingTimer = null;
-        let lastController = null;
+            const isAdmin = @User.IsInRole("admin").ToString().ToLower();
+            let typingTimer = null;
+            let lastController = null;
 
-        function getFilters() {
-            const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
-            const facilityId = document.querySelector('select[name="facilityId"]')?.value || '';
-            const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
-            const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
-            const term = (searchInput?.value || '').trim();
-            return { categoryId, facilityId, dateFrom, dateTo, term };
-        }
-
-        function buildUrl() {
-            const f = getFilters();
-            const base = '@Url.Action("GetAllList", "Requests", new { area = "Admin" })';
-            const p = new URLSearchParams();
-
-            p.set('page', String(state.page));
-            // pageSize optional (if you want)
-            // p.set('pageSize', '20');
-
-            if (f.categoryId) p.set('categoryId', f.categoryId);
-            if (f.facilityId) p.set('facilityId', f.facilityId);
-            if (f.dateFrom) p.set('dateFrom', f.dateFrom);
-            if (f.dateTo) p.set('dateTo', f.dateTo);
-            if (state.term && state.term.trim().length > 0) p.set('term', state.term.trim());
-
-            return base + '?' + p.toString();
-        }
-
-        function escapeHtml(s) {
-            if (s === null || s === undefined) return '';
-            return String(s)
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('"', '&quot;')
-                .replaceAll("'", '&#039;');
-        }
-
-        function renderTable(items) {
-            tableBody.innerHTML = '';
-
-            if (!items || items.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="15" class="text-center text-muted">Нічого не знайдено</td></tr>`;
-                return;
+            function getFilters() {
+                const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
+                const facilityId = document.querySelector('select[name="facilityId"]')?.value || '';
+                const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
+                const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
+                const term = (searchInput?.value || '').trim();
+                return { categoryId, facilityId, dateFrom, dateTo, term };
             }
 
-            // Active first, then completed
-            items.forEach((item) => {
-                const tr = document.createElement('tr');
+            function buildUrl() {
+                const f = getFilters();
+                const base = '@Url.Action("GetAllList", "Requests", new { area = "Admin" })';
+                const p = new URLSearchParams();
 
-                const isNoFacility = !item.facility || item.facility.trim() === '' || item.facility.trim() === 'Немає';
-                if (isNoFacility) tr.classList.add('row-no-facility');
-                if (item.isCompleted) tr.classList.add('row-completed');
+                p.set('page', String(state.page));
 
-                const audioParts = [];
-                if (item.nameAudio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.nameAudio)}"></audio></span></label>`);
-                if (item.addressAudio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.addressAudio)}"></audio></span></label>`);
-                if (item.audio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.audio)}"></audio></span></label>`);
-                const audioHtml = audioParts.join('');
+                if (f.categoryId) p.set('categoryId', f.categoryId);
+                if (f.facilityId) p.set('facilityId', f.facilityId);
+                if (f.dateFrom) p.set('dateFrom', f.dateFrom);
+                if (f.dateTo) p.set('dateTo', f.dateTo);
+                if (state.term && state.term.trim().length > 0) p.set('term', state.term.trim());
 
-                let actionsHtml = '';
-                if (item.isCompleted) {
-                    if (isAdmin) {
+                return base + '?' + p.toString();
+            }
+
+            function escapeHtml(s) {
+                if (s === null || s === undefined) return '';
+                return String(s)
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
+
+            function updateBadge(total) {
+                if (!badge) return;
+                const n = Number(total || 0);
+                badge.textContent = String(n);
+            }
+
+            function renderTable(items) {
+                tableBody.innerHTML = '';
+
+                if (!items || items.length === 0) {
+                    tableBody.innerHTML = `<tr><td colspan="15" class="text-center text-muted">Нічого не знайдено</td></tr>`;
+                    return;
+                }
+
+                items.forEach((item) => {
+                    const tr = document.createElement('tr');
+
+                    const isNoFacility = !item.facility || item.facility.trim() === '' || item.facility.trim() === 'Немає';
+                    if (isNoFacility) tr.classList.add('row-no-facility');
+                    if (item.isCompleted) tr.classList.add('row-completed');
+
+                    const audioParts = [];
+                    if (item.nameAudio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.nameAudio)}"></audio></span></label>`);
+                    if (item.addressAudio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.addressAudio)}"></audio></span></label>`);
+                    if (item.audio) audioParts.push(`<label><span><audio controls src="${escapeHtml(item.audio)}"></audio></span></label>`);
+                    const audioHtml = audioParts.join('');
+
+                    let actionsHtml = '';
+                    if (item.isCompleted) {
+                        if (isAdmin) {
+                            actionsHtml = `
+                                <form style="display:inline-block;" id="form-${escapeHtml(item.id)}"
+                                      action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
+                                      method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="${escapeHtml(item.id)}" />
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="button" class="btn btn-sm btn-danger"
+                                            onclick="confirmDelete('${escapeHtml(item.id)}')">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </form>`;
+                        }
+                    } else {
                         actionsHtml = `
-                            <form style="display:inline-block;" id="form-${escapeHtml(item.id)}"
-                                  action="@Url.Action("Delete", "Requests", new { area = "Admin" })"
-                                  method="post" class="d-inline">
+                            <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
+                                  method="post">
                                 <input type="hidden" name="id" value="${escapeHtml(item.id)}" />
                                 <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                <button type="button" class="btn btn-sm btn-danger"
-                                        onclick="confirmDelete('${escapeHtml(item.id)}')">
-                                    <i class="fa fa-trash"></i>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fa-solid fa-square-check fa-lg"></i>
                                 </button>
                             </form>`;
                     }
-                } else {
-                    actionsHtml = `
-                        <form action="@Url.Action("CompleteRequest", "Requests", new { area = "Admin" })"
-                              method="post">
-                            <input type="hidden" name="id" value="${escapeHtml(item.id)}" />
-                            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                <button type="submit" class="btn btn-success">
-                                <i class="fa-solid fa-square-check fa-lg"></i>
-                            </button>
-                        </form>`;
+
+                    const editHtml = isAdmin
+                    ? `<td>
+                          <a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
+                            <i class="fa-regular fa-pen-to-square fa-lg"></i>
+                          </a>
+                       </td>`
+                    : `<td></td>`;
+
+                    const printHtml = `
+                        <td>
+                            <a target="_blank" href="@Url.Action("Print", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}" title="Друк">
+                                <i class="fa-solid fa-print fa-lg"></i>
+                            </a>
+                        </td>`;
+
+                    tr.innerHTML = `
+                        <th scope="row">${escapeHtml(item.index)}</th>
+                        <td><label><span>${escapeHtml(item.requestNumber)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.facility)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.name)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.caller)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.address)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.category)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.subcategory)}</span></label></td>
+                        <td><label><span>${escapeHtml(item.text)}</span></label></td>
+                        <td>${audioHtml}</td>
+                        <td><label><span>${escapeHtml(item.date)}</span></label></td>
+                        <td>
+                            <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}">
+                                <i class="fa-solid fa-eye fa-lg"></i>
+                            </a>
+                        </td>
+                        ${printHtml}
+                        ${editHtml}
+                        <td>${actionsHtml}</td>
+                    `;
+
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            const paginationNav = document.getElementById('paginationNav');
+
+            function setPage(p) { state.page = p; }
+
+            function renderPagination(data) {
+                if (!paginationNav) return;
+
+                const totalPages  = Number(data?.totalPages || 0);
+                const currentPage = Number(data?.currentPage || state.page);
+
+                if (!totalPages || totalPages <= 1) {
+                    paginationNav.style.display = 'none';
+                    return;
                 }
 
-                const editHtml = isAdmin
-                ? `<td>
-                      <a href="@Url.Action("Edit", "Requests", new { area = "Admin" })?id=${escapeHtml(item.id)}">
-                        <i class="fa-regular fa-pen-to-square fa-lg"></i>
-                      </a>
-                   </td>`
-                : `<td></td>`;
+                paginationNav.style.display = 'block';
 
-                const printHtml = `
-                    <td>
-                        <a target="_blank" href="@Url.Action("Print", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}" title="Друк">
-                            <i class="fa-solid fa-print fa-lg"></i>
-                        </a>
-                    </td>`;
+                const ul = paginationNav.querySelector('ul.pagination');
+                if (!ul) return;
 
-                tr.innerHTML = `
-                    <th scope="row">${escapeHtml(item.index)}</th>
-                    <td><label><span>${escapeHtml(item.requestNumber)}</span></label></td>
-                    <td><label><span>${escapeHtml(item.facility)}</span></label></td>
-                    <td><label><span>${escapeHtml(item.name)}</span></label></td>
-                    <td><label><span>${escapeHtml(item.caller)}</span></label></td>
-                    <td><label><span>${escapeHtml(item.address)}</span></label></td>
-                    <td><label><span>${escapeHtml(item.category)}</span></label></td>
-                    <td><label><span>${escapeHtml(item.subcategory)}</span></label></td>
-                    <td><label><span>${escapeHtml(item.text)}</span></label></td>
-                    <td>${audioHtml}</td>
-                    <td><label><span>${escapeHtml(item.date)}</span></label></td>
-                    <td>
-                        <a href="@Url.Action("Show", "Requests", new { area = "Admin" })/${escapeHtml(item.id)}">
-                            <i class="fa-solid fa-eye fa-lg"></i>
-                        </a>
-                    </td>
-                    ${printHtml}
-                    ${editHtml}
-                    <td>${actionsHtml}</td>
-                `;
+                ul.innerHTML = '';
 
-                tableBody.appendChild(tr);
-            });
-        }
+                const mkItem = (p, label, active, disabled, ariaLabel) => {
+                    const li = document.createElement('li');
+                    li.className = `page-item${active ? ' active' : ''}${disabled ? ' disabled' : ''}`;
 
-        function loadAll() {
-            if (lastController) lastController.abort();
-            lastController = new AbortController();
+                    const a = document.createElement('a');
+                    a.className = 'page-link';
+                    a.href = '#';
+                    a.dataset.page = String(p);
+                    if (ariaLabel) a.setAttribute('aria-label', ariaLabel);
+                    a.innerHTML = label;
 
-            const url = buildUrl();
+                    li.appendChild(a);
+                    return li;
+                };
 
-            fetch(url, { signal: lastController.signal })
-                .then(r => {
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    return r.json();
-                })
-                .then(data => {
-                    // sync page returned by server
-                    if (data?.currentPage) setPage(Number(data.currentPage));
+                ul.appendChild(mkItem(currentPage - 1, '&laquo;', false, currentPage <= 1, 'Попередня'));
 
-                    renderTable(data?.items || []);
-                    renderPagination(data);
-                })
-                .catch(err => {
-                    if (err.name === 'AbortError') return;
-                    console.error('GetAllList error:', err);
+                for (let i = 1; i <= totalPages; i++) {
+                    ul.appendChild(mkItem(i, String(i), i === currentPage, false));
+                }
+
+                ul.appendChild(mkItem(currentPage + 1, '&raquo;', false, currentPage >= totalPages, 'Наступна'));
+
+                ul.querySelectorAll('a.page-link').forEach(a => {
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const p = Number(a.dataset.page || currentPage);
+                        if (!p || p < 1 || p > totalPages || p === currentPage) return;
+                        setPage(p);
+                        loadAll();
+                    });
                 });
-        }
-
-        const paginationNav = document.getElementById('paginationNav');
-
-        function setPage(p) {
-            state.page = p;
-        }
-
-        function renderPagination(data) {
-            if (!paginationNav) return;
-
-            
-
-            const totalPages  = Number(data?.totalPages || 0);
-            const currentPage = Number(data?.currentPage || state.page);
-
-            if (!totalPages || totalPages <= 1) {
-                paginationNav.style.display = 'none';
-                return;
             }
 
-            paginationNav.style.display = 'block';
+            function loadAll() {
+                if (lastController) lastController.abort();
+                lastController = new AbortController();
 
-            const ul = paginationNav.querySelector('ul.pagination');
-            if (!ul) return;
+                const url = buildUrl();
 
-            ul.innerHTML = '';
+                fetch(url, { signal: lastController.signal })
+                    .then(r => {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    })
+                    .then(data => {
+                        if (data?.currentPage) setPage(Number(data.currentPage));
 
-            const mkItem = (p, label, active, disabled, ariaLabel) => {
-                const li = document.createElement('li');
-                li.className = `page-item${active ? ' active' : ''}${disabled ? ' disabled' : ''}`;
+                        // ✅ update header counter
+                        updateBadge(data?.total);
 
-                const a = document.createElement('a');
-                a.className = 'page-link';
-                a.href = '#';
-                a.dataset.page = String(p);
-                if (ariaLabel) a.setAttribute('aria-label', ariaLabel);
-                a.innerHTML = label;
-
-                li.appendChild(a);
-                return li;
-            };
-
-            // prev
-            ul.appendChild(
-                mkItem(currentPage - 1, '&laquo;', false, currentPage <= 1, 'Попередня')
-            );
-
-            for (let i = 1; i <= totalPages; i++) {
-                ul.appendChild(mkItem(i, String(i), i === currentPage, false));
+                        renderTable(data?.items || []);
+                        renderPagination(data);
+                    })
+                    .catch(err => {
+                        if (err.name === 'AbortError') return;
+                        console.error('GetAllList error:', err);
+                    });
             }
 
-            // next
-            ul.appendChild(
-                mkItem(currentPage + 1, '&raquo;', false, currentPage >= totalPages, 'Наступна')
-            );
+            // events
+            if (searchInput) {
+                searchInput.addEventListener('input', function () {
+                    clearTimeout(typingTimer);
+                    state.term = (searchInput.value || '');
+                    setPage(1);
+                    typingTimer = setTimeout(loadAll, 300);
+                });
+            }
 
-            // clicks
-            ul.querySelectorAll('a.page-link').forEach(a => {
-                a.addEventListener('click', (e) => {
+            if (filtersForm) {
+                filtersForm.addEventListener('submit', function (e) {
                     e.preventDefault();
-                    const p = Number(a.dataset.page || currentPage);
-                    if (!p || p < 1 || p > totalPages || p === currentPage) return;
-                    setPage(p);
+                    setPage(1);
                     loadAll();
                 });
-            });
-        }
+            }
 
-        // events
-        if (searchInput) {
-            searchInput.addEventListener('input', function () {
-                clearTimeout(typingTimer);
-                state.term = (searchInput.value || '');
-                setPage(1);
-                typingTimer = setTimeout(loadAll, 300);
-            });
-        }
-        
-        if (filtersForm) {
-            filtersForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-                setPage(1);
+            setInterval(() => {
+                if (typingTimer) return;
                 loadAll();
-            });
-        }
+            }, 60000);
 
-        setInterval(() => {
-            if (typingTimer) return;
             loadAll();
-        }, 60000);
-
-        loadAll();
-    })();
+        })();
     </script>
 }
