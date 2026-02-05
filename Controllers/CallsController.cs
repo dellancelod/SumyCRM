@@ -323,7 +323,7 @@ namespace SumyCRM.Controllers
 
                 // Plain response for Asterisk / scripts
                 // If you still need "1/0" instead: return Content(found ? "1" : "0", "text/plain");
-                return Content(found ? "found" : "notfound", "text/plain");
+                return Content(found ? "1" : "0", "text/plain");
             }
             finally
             {
