@@ -8,7 +8,6 @@ using SumyCRM.Services;
 using System.Text.RegularExpressions;
 using static SumyCRM.Services.CategoryConverter;
 using static SumyCRM.Services.TranscriptService;
-using System.Text.RegularExpressions;
 
 namespace SumyCRM.Controllers
 {
@@ -20,6 +19,7 @@ namespace SumyCRM.Controllers
         private readonly DataManager _dataManager;
         private readonly IConfiguration _config;
         private readonly IGeocodingService _geo;
+
         public CallsController(DataManager dataManager, IConfiguration config, IGeocodingService geo)
         {
             _config = config;
@@ -124,7 +124,6 @@ namespace SumyCRM.Controllers
                 var geo = await _geo.GeocodeAsync(addrText, ct);
 
                 // Asterisk-friendly plain response:
-                // "1" = OK, "0" = not found -> ask user to repeat
                 return Content(geo != null ? "1" : "0", "text/plain");
             }
             finally
@@ -159,7 +158,6 @@ namespace SumyCRM.Controllers
                 return BadRequest("No audio name");
 
             string folder = Path.Combine("wwwroot", "audio");
-
             Directory.CreateDirectory(folder);
 
             string fileNameForName = $"{Guid.NewGuid()}_{audioName.FileName}";
@@ -171,20 +169,15 @@ namespace SumyCRM.Controllers
             string fullPathText = Path.Combine(folder, fileNameForText);
 
             using (var stream = new FileStream(fullPathText, FileMode.Create))
-            {
                 await audioText.CopyToAsync(stream);
-            }
+
             using (var stream = new FileStream(fullPathName, FileMode.Create))
-            {
                 await audioName.CopyToAsync(stream);
-            }
+
             using (var stream = new FileStream(fullPathAddress, FileMode.Create))
-            {
                 await audioAddress.CopyToAsync(stream);
-            }
 
             // ===== Whisper STT =====
-
             AudioClient audioClient = new("whisper-1", _apiKey);
 
             AudioTranscriptionOptions nameOptions = new()
@@ -197,6 +190,7 @@ namespace SumyCRM.Controllers
                     "Українська. Без зайвих слів, без пояснень. " +
                     "Приклад: 'Іваненко Петро Олексійович'."
             };
+
             AudioTranscriptionOptions addressOptions = new()
             {
                 Language = "uk",
@@ -208,6 +202,7 @@ namespace SumyCRM.Controllers
                     "Збережи всі цифри, дроби (наприклад 12/1), корпуси, під'їзд. " +
                     "Без зайвих фраз."
             };
+
             AudioTranscriptionOptions textOptions = new()
             {
                 Language = "uk",
@@ -219,19 +214,19 @@ namespace SumyCRM.Controllers
                     "Тематика: транспорт/маршрутки, вода/водовідведення, тепло, ліфти, " +
                     "електроенергія, газ, благоустрій, освітлення, ремонт житла."
             };
-            
+
             var whisperTextPath = await ConvertToWhisperWavAsync(fullPathText, HttpContext.RequestAborted);
             var whisperNamePath = await ConvertToWhisperWavAsync(fullPathName, HttpContext.RequestAborted);
             var whisperAddrPath = await ConvertToWhisperWavAsync(fullPathAddress, HttpContext.RequestAborted);
 
             AudioTranscription transcriptionText =
-                     await audioClient.TranscribeAudioAsync(whisperTextPath, textOptions);
+                await audioClient.TranscribeAudioAsync(whisperTextPath, textOptions);
 
             AudioTranscription transcriptionName =
-                     await audioClient.TranscribeAudioAsync(whisperNamePath, nameOptions);
+                await audioClient.TranscribeAudioAsync(whisperNamePath, nameOptions);
 
             AudioTranscription transcriptionAddress =
-                     await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
+                await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
 
             string transcriptText = CleanTranscript(transcriptionText.Text);
             string transcriptName = CleanTranscript(transcriptionName.Text);
@@ -270,12 +265,13 @@ namespace SumyCRM.Controllers
 
             return Ok("Uploaded");
         }
+
         [HttpPost("check-waterleak")]
         [AllowAnonymous]
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> CheckWaterLeak(
-        [FromForm] IFormFile audioAddress,
-        [FromHeader(Name = "X-API-KEY")] string? apiKey)
+            [FromForm] IFormFile audioAddress,
+            [FromHeader(Name = "X-API-KEY")] string? apiKey)
         {
             string secret = _config["UploadSecret"];
             if (apiKey != secret)
@@ -325,16 +321,17 @@ namespace SumyCRM.Controllers
                 // ===== check DB =====
                 bool found = await HasWaterLeakMatch(addr);
 
-                // IMPORTANT: plain response for Asterisk
-                return Content(found ? "1" : "0", "text/plain");
+                // Plain response for Asterisk / scripts
+                // If you still need "1/0" instead: return Content(found ? "1" : "0", "text/plain");
+                return Content(found ? "found" : "notfound", "text/plain");
             }
             finally
             {
-                // ===== cleanup temp files =====
                 SafeDelete(tmpPath);
                 SafeDelete(whisperPath);
             }
         }
+
         static void SafeDelete(string? path)
         {
             try
@@ -344,14 +341,16 @@ namespace SumyCRM.Controllers
             }
             catch
             {
-                // intentionally ignored (логувати можна, але Asteriskу пофіг)
+                // ignored
             }
         }
+
         private async Task<bool> HasWaterLeakMatch(string inputAddress)
         {
-            var user = ParseAddr(inputAddress);
-            if (string.IsNullOrWhiteSpace(user.Street)) return false;
+            var norm = NormalizeAddr(inputAddress);
+            if (string.IsNullOrWhiteSpace(norm)) return false;
 
+            // Load open leaks
             var leaks = await _dataManager.WaterLeakReports
                 .GetWaterLeakReports()
                 .Where(x => x.Status != "Done")
@@ -360,23 +359,14 @@ namespace SumyCRM.Controllers
 
             foreach (var a in leaks)
             {
-                var leak = ParseAddr(a);
-
-                // street must match (after your normalization)
-                if (!StreetClose(user.Street, leak.Street))
-                    continue;
-
-                // range-aware / number-aware house match
-                if (HouseMatches(leak.HouseRaw, user.HouseNumber, user.HouseRaw))
-                    return true;
-
-                // optional: fallback to your old heuristic if you want
-                // if (IsAddressClose(NormalizeAddr(inputAddress), NormalizeAddr(a))) return true;
+                var n2 = NormalizeAddr(a);
+                if (IsAddressClose(norm, n2)) return true;
             }
 
             return false;
         }
-        // very simple normalization (you can expand)
+
+        // very simple normalization (expand as needed)
         private static string NormalizeAddr(string s)
         {
             if (string.IsNullOrWhiteSpace(s)) return "";
@@ -388,98 +378,117 @@ namespace SumyCRM.Controllers
                  .Replace("проспект", "просп")
                  .Replace("провулок", "пров")
                  .Replace(".", " ")
-                 .Replace(",", " ")
-                 .Replace("  ", " ");
+                 .Replace(",", " ");
 
-            // keep digits/letters, collapse spaces
-            var cleaned = new string(s.Where(ch => char.IsLetterOrDigit(ch) || ch == ' ' || ch == '/').ToArray());
+            // normalize dashes (range separators)
+            s = s.Replace('–', '-')  // en-dash
+                 .Replace('—', '-')  // em-dash
+                 .Replace('−', '-'); // minus sign
+
+            while (s.Contains("  ")) s = s.Replace("  ", " ");
+
+            // keep digits/letters, spaces, '/', '-' (for ranges)
+            var cleaned = new string(s.Where(ch =>
+                char.IsLetterOrDigit(ch) || ch == ' ' || ch == '/' || ch == '-'
+            ).ToArray());
+
             while (cleaned.Contains("  ")) cleaned = cleaned.Replace("  ", " ");
             return cleaned.Trim();
         }
 
-        private sealed record AddrParts(string Street, string HouseRaw, int? HouseNumber);
-
-        private static AddrParts ParseAddr(string s)
-        {
-            var n = NormalizeAddr(s);
-
-            // Expect something like: "харківська 12-24" or "харківська 13" or "харківська 13/2"
-            // We'll take last "house-ish" token as house, the rest as street.
-            var parts = n.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) return new AddrParts(n, "", null);
-
-            var house = parts[^1];
-            var street = string.Join(' ', parts.Take(parts.Length - 1)).Trim();
-
-            // extract first integer from house (e.g., "13/2" -> 13, "13а" -> 13)
-            var m = Regex.Match(house, @"^(?<num>\d+)");
-            int? num = m.Success ? int.Parse(m.Groups["num"].Value) : null;
-
-            return new AddrParts(street, house, num);
-        }
-
-        private static bool StreetClose(string a, string b)
-        {
-            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
-            // strict equality after normalization is usually best; you can expand later (typos, etc.)
-            return a == b;
-        }
-
-        private static bool HouseMatches(string leakHouseRaw, int? userHouseNum, string userHouseRaw)
-        {
-            // If user didn't give a number — can't do range logic reliably
-            if (userHouseNum is null) return false;
-
-            // Normalize dashes: "-", "–", "—"
-            var h = leakHouseRaw.Replace('–', '-').Replace('—', '-');
-
-            // 1) Range: "12-24"
-            var rm = Regex.Match(h, @"^(?<a>\d+)\s*-\s*(?<b>\d+)");
-            if (rm.Success)
-            {
-                var a = int.Parse(rm.Groups["a"].Value);
-                var b = int.Parse(rm.Groups["b"].Value);
-                var lo = Math.Min(a, b);
-                var hi = Math.Max(a, b);
-                return userHouseNum.Value >= lo && userHouseNum.Value <= hi;
-            }
-
-            // 2) Exact single number: "13" / "13а" / "13/2"
-            var sm = Regex.Match(h, @"^(?<n>\d+)");
-            if (sm.Success)
-            {
-                var n = int.Parse(sm.Groups["n"].Value);
-                return userHouseNum.Value == n;
-            }
-
-            // 3) Fallback: raw compare (rare)
-            return string.Equals(leakHouseRaw, userHouseRaw, StringComparison.OrdinalIgnoreCase);
-        }
         private static bool IsAddressClose(string a, string b)
         {
             if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
 
-            // must share a house number (very important)
-            var anum = ExtractHouse(a);
-            var bnum = ExtractHouse(b);
-            if (!string.IsNullOrEmpty(anum) && !string.IsNullOrEmpty(bnum) && anum != bnum)
-                return false;
+            // Must match house number logic (supports ranges like 12-24)
+            var anumToken = ExtractHouseToken(a);
+            var bnumToken = ExtractHouseToken(b);
 
-            // token overlap
+            if (!string.IsNullOrEmpty(anumToken) && !string.IsNullOrEmpty(bnumToken))
+            {
+                if (!HouseTokensMatch(anumToken, bnumToken))
+                    return false;
+            }
+
+            // Token overlap (street name etc.)
             var at = a.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
             var bt = b.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
             var common = at.Intersect(bt).Count();
 
-            // threshold: tune as needed
             return common >= 2;
         }
 
-        private static string ExtractHouse(string s)
+        private static string ExtractHouseToken(string s)
         {
-            // naive: first token that contains a digit
+            // First token that contains a digit (can be "13", "13а", "12/1", "12-24")
             foreach (var t in s.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-                if (t.Any(char.IsDigit)) return t;
+                if (t.Any(char.IsDigit)) return t.Trim();
             return "";
+        }
+
+        private static bool HouseTokensMatch(string inputToken, string leakToken)
+        {
+            // If leakToken is a range (12-24), and inputToken is 13 -> match
+            // If both are single numbers -> exact numeric match (leading digits)
+            // Otherwise fallback to string equality for things like 19/2, 10к1 etc.
+
+            inputToken = (inputToken ?? "").Trim();
+            leakToken = (leakToken ?? "").Trim();
+
+            // normalize dash
+            inputToken = NormalizeDash(inputToken);
+            leakToken = NormalizeDash(leakToken);
+
+            // Parse input leading number
+            if (!TryParseLeadingInt(inputToken, out int inputNum))
+            {
+                // can't parse -> safest: exact compare
+                return string.Equals(inputToken, leakToken, StringComparison.OrdinalIgnoreCase);
+            }
+
+            // If leak is a range
+            if (TryParseRange(leakToken, out int from, out int to))
+            {
+                if (from > to) (from, to) = (to, from);
+                return inputNum >= from && inputNum <= to;
+            }
+
+            // Leak is not a range: compare leading ints if possible
+            if (TryParseLeadingInt(leakToken, out int leakNum))
+                return inputNum == leakNum;
+
+            // Fallback: exact compare
+            return string.Equals(inputToken, leakToken, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeDash(string s)
+            => (s ?? "")
+                .Replace('–', '-')
+                .Replace('—', '-')
+                .Replace('−', '-');
+
+        private static bool TryParseLeadingInt(string token, out int value)
+        {
+            value = 0;
+            if (string.IsNullOrWhiteSpace(token)) return false;
+
+            // take leading digits only (e.g. "13а" -> 13)
+            var m = Regex.Match(token, @"^\s*(\d+)");
+            if (!m.Success) return false;
+
+            return int.TryParse(m.Groups[1].Value, out value);
+        }
+
+        private static bool TryParseRange(string token, out int from, out int to)
+        {
+            from = 0; to = 0;
+            if (string.IsNullOrWhiteSpace(token)) return false;
+
+            // Accept: 12-24, 12–24, 12—24 (already normalized to '-')
+            var m = Regex.Match(token, @"^\s*(\d+)\s*-\s*(\d+)\s*$");
+            if (!m.Success) return false;
+
+            return int.TryParse(m.Groups[1].Value, out from) && int.TryParse(m.Groups[2].Value, out to);
         }
 
         [HttpPost("record")]
@@ -504,24 +513,19 @@ namespace SumyCRM.Controllers
             string folder = Path.Combine("wwwroot", "callrecords");
             Directory.CreateDirectory(folder);
 
-            // Имя файла: 20251205_134500_+380677673165_guid.wav
             string ext = Path.GetExtension(audio.FileName);
             if (string.IsNullOrEmpty(ext))
-                ext = ".wav"; // по умолчанию
+                ext = ".wav";
 
             string safeCaller = caller.Replace("+", "").Replace(" ", "");
             string fileName = $"{DateTime.UtcNow:yyyyMMdd_HHmmss}_{safeCaller}_{Guid.NewGuid()}{ext}";
             string fullPath = Path.Combine(folder, fileName);
 
             using (var stream = new FileStream(fullPath, FileMode.Create))
-            {
                 await audio.CopyToAsync(stream);
-            }
 
-            // Сохраняем запись в БД
             var record = new CallRecording
             {
-                // Если хочешь автонумерацию — можешь заменить на собственную логику
                 CallNumber = _dataManager.CallRecordings.GetCallRecordings().Count() + 1,
                 Caller = caller,
                 AudioFilePath = "/callrecords/" + fileName
@@ -538,6 +542,5 @@ namespace SumyCRM.Controllers
                 url = record.AudioFilePath
             });
         }
-
     }
 }
