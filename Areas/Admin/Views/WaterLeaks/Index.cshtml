@@ -78,10 +78,6 @@
     const deleteUrl = '@Url.Action("Delete", "WaterLeaks", new { area = "Admin" })';
     const deleteAllUrl = '@Url.Action("DeleteAll", "WaterLeaks", new { area = "Admin" })';
 
-    // ✅ street suggest endpoint
-    // If you use attribute routes: /admin/addresses/suggest?term=
-    // If you use default routes, you can also do:
-    // const suggestUrl = '@Url.Action("Suggest", "Addresses", new { area = "Admin" })' + '?term=';
     const suggestUrl = '/admin/addresses/suggest?term=';
 
     const map = L.map('map').setView([50.9077, 34.7981], 12);
@@ -117,6 +113,9 @@
     }
 
     function drawPoint(p) {
+        // guard: avoid Leaflet crash
+        if (p?.lat == null || p?.lon == null) return null;
+
         const layer = L.circleMarker([p.lat, p.lon], {
             radius: 7,
             color: "red",
@@ -151,7 +150,7 @@
     function focusLayer(p) {
         const layer = layersById.get(p.id);
         if (!layer) {
-            map.setView([p.lat, p.lon], 16);
+            if (p?.lat != null && p?.lon != null) map.setView([p.lat, p.lon], 16);
             return;
         }
 
@@ -242,14 +241,14 @@
         points.forEach(p => {
             if (layersById.has(p.id)) return;
 
-            let layer;
+            let layer = null;
             if (p.street === true && p.geometryJson) {
                 layer = drawStreet(p);
             } else {
                 layer = drawPoint(p);
             }
 
-            layersById.set(p.id, layer);
+            if (layer) layersById.set(p.id, layer);
         });
 
         renderLeaksList(points);
@@ -276,21 +275,15 @@
         }
 
         function streetPart(v) {
-            // before comma, and also before house number: "Харківська 10" -> "Харківська"
             const first = (v || "").split(",")[0].trim();
-
-            // If user typed "лушп 10" we still want "лушп"
-            // Take only letters/spaces/dots/dashes (UA/RU/EN), stop at first digit
             const m = first.match(/^[^\d]+/);
             return (m ? m[0] : first).trim();
         }
 
         function keepTail(original) {
-            // Keep everything AFTER the street name user typed (e.g., "Харківська 10, кв 2")
-            // We'll replace only the first "streetPart" chunk.
             const sp = streetPart(original);
             if (!sp) return "";
-            return original.substring(sp.length); // includes spaces + numbers etc
+            return original.substring(sp.length);
         }
 
         function setActive(idx) {
@@ -331,7 +324,7 @@
                 btn.textContent = s;
 
                 btn.addEventListener("mousedown", (e) => {
-                    e.preventDefault(); // prevent blur before select
+                    e.preventDefault();
                     const tail = keepTail(input.value);
                     input.value = s + tail;
                     hide();
@@ -431,7 +424,7 @@
             return;
         }
 
-        msg("Малюємо геометрію вулиці...");
+        msg("Додаємо...");
 
         const res = await fetch(createUrl, {
             method: "POST",
@@ -444,10 +437,40 @@
         try { data = JSON.parse(text); } catch { data = { error: text }; }
 
         if (!res.ok) {
-            msg("Додавання не вдалося. Спробуйте ще раз", true);
+            msg(data.error || "Додавання не вдалося. Спробуйте ще раз", true);
             return;
         }
 
+        // ✅ RANGE response: { range:true, created:N, points:[{id,lat,lon,...}, ...] }
+        if (data.range === true && Array.isArray(data.points)) {
+            let added = 0;
+            let firstLayer = null;
+
+            for (const p of data.points) {
+                if (!p || p.lat == null || p.lon == null) continue;
+                if (layersById.has(p.id)) continue;
+
+                const layer = drawPoint(p);
+                if (!layer) continue;
+
+                layersById.set(p.id, layer);
+                added++;
+
+                if (!firstLayer) firstLayer = layer;
+            }
+
+            if (firstLayer && firstLayer.getLatLng) {
+                map.setView(firstLayer.getLatLng(), 15);
+                firstLayer.openPopup?.();
+            }
+
+            msg(`Додано точок: ${added}`);
+            e.target.reset();
+            await loadPoints();
+            return;
+        }
+
+        // ✅ Street
         if (data.street === true && data.geometryJson) {
             if (!layersById.has(data.id)) {
                 const layer = drawStreet(data);
@@ -455,9 +478,21 @@
                 map.fitBounds(layer.getBounds(), { padding: [20, 20] });
                 layer.openPopup?.();
             }
-        } else {
-            if (!layersById.has(data.id)) {
-                const layer = drawPoint(data);
+            msg("Додано!");
+            e.target.reset();
+            await loadPoints();
+            return;
+        }
+
+        // ✅ Single point
+        if (data?.lat == null || data?.lon == null) {
+            msg("Сервер повернув некоректні координати", true);
+            return;
+        }
+
+        if (!layersById.has(data.id)) {
+            const layer = drawPoint(data);
+            if (layer) {
                 layersById.set(data.id, layer);
                 map.setView([data.lat, data.lon], 16);
                 layer.openPopup?.();
@@ -466,7 +501,6 @@
 
         msg("Додано!");
         e.target.reset();
-
         await loadPoints();
     });
 

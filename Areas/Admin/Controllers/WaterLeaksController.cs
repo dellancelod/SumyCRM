@@ -4,10 +4,11 @@ using Microsoft.Extensions.Caching.Memory;
 using SumyCRM.Data;
 using SumyCRM.Models;
 using SumyCRM.Services;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
-
     [Area("Admin")]
     public class WaterLeaksController : Controller
     {
@@ -23,6 +24,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             _cache = cache;
             _httpFactory = httpFactory;
         }
+
         // Page with form + map
         public IActionResult Index() => View();
 
@@ -33,7 +35,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             var points = await _dataManager.WaterLeakReports
                 .GetWaterLeakReports()
                 .OrderByDescending(x => x.DateAdded)
-                .Select(x => new {
+                .Select(x => new
+                {
                     id = x.Id,
                     address = x.Address,
                     lat = x.Latitude,
@@ -52,16 +55,60 @@ namespace SumyCRM.Areas.Admin.Controllers
             public string Address { get; set; } = "";
             public string? Notes { get; set; }
         }
+
         public class DeleteDto { public Guid Id { get; set; } }
+
         private static bool HasDigit(string s) => s.Any(char.IsDigit);
+
         private static string NormalizeStreetName(string s)
         {
             s = (s ?? "").Trim();
-
             // Collapse spaces
-            s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim();
-
+            s = Regex.Replace(s, @"\s+", " ").Trim();
             return s;
+        }
+
+        private static bool TryParseHouseRange(string input, out string streetPart, out int from, out int to)
+        {
+            streetPart = "";
+            from = to = 0;
+
+            if (string.IsNullOrWhiteSpace(input))
+                return false;
+
+            // Examples:
+            // "Харківська 12-24"
+            // "Харківська, 12–24"
+            // "вул. Харківська 12 - 24"
+            var s = NormalizeStreetName(input);
+
+            // allow dash '-' or en-dash '–'
+            var m = Regex.Match(s, @"^(?<street>.*?)[,\s]+(?<a>\d{1,5})\s*[-–]\s*(?<b>\d{1,5})\s*$",
+                RegexOptions.CultureInvariant);
+
+            if (!m.Success)
+                return false;
+
+            streetPart = NormalizeStreetName(m.Groups["street"].Value);
+            if (string.IsNullOrWhiteSpace(streetPart))
+                return false;
+
+            if (!int.TryParse(m.Groups["a"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var a))
+                return false;
+            if (!int.TryParse(m.Groups["b"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var b))
+                return false;
+
+            if (a <= 0 || b <= 0)
+                return false;
+
+            from = Math.Min(a, b);
+            to = Math.Max(a, b);
+
+            // guard: don't allow insane ranges
+            if (to - from > 200)
+                return false;
+
+            return true;
         }
 
         private static readonly string[] OverpassEndpoints = new[]
@@ -116,12 +163,12 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return lines;
 
-            string BuildOverpassQuery(double lat, double lon, int rad, string namePattern)
+            static string BuildOverpassQuery(double lat, double lon, int rad, string namePattern)
             {
                 return $@"
                 [out:json][timeout:25];
                 (
-                  way(around:{rad},{lat.ToString(System.Globalization.CultureInfo.InvariantCulture)},{lon.ToString(System.Globalization.CultureInfo.InvariantCulture)})
+                  way(around:{rad},{lat.ToString(CultureInfo.InvariantCulture)},{lon.ToString(CultureInfo.InvariantCulture)})
                     [""highway""]
                     [~""^(name|name:uk|name:ru)$""~""{namePattern}"",i];
                 );
@@ -196,9 +243,8 @@ namespace SumyCRM.Areas.Admin.Controllers
         private static string EscapeOverpassRegex(string s)
         {
             // Escape regex special characters for Overpass ~ operator
-            return System.Text.RegularExpressions.Regex.Escape(s.Trim());
+            return Regex.Escape(s.Trim());
         }
-
 
         // API: create point by address (server geocoding)
         [HttpPost]
@@ -211,7 +257,70 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 var input = dto.Address.Trim();
 
-                // POINT (address with number)
+                // ===== RANGE: "Харківська 12-24" => create points for each house number =====
+                if (TryParseHouseRange(input, out var streetPart, out var from, out var to))
+                {
+                    // Limit to protect from accidental huge ranges
+                    const int maxPoints = 60;
+                    var count = (to - from + 1);
+                    if (count > maxPoints)
+                        return BadRequest(new { error = $"Занадто великий діапазон ({count}). Максимум: {maxPoints} адрес за раз." });
+
+                    var created = new List<object>();
+
+                    for (int n = from; n <= to; n++)
+                    {
+                        ct.ThrowIfCancellationRequested();
+
+                        var addr = $"{streetPart} {n}";
+                        var geo = await _geo.GeocodeAsync(addr, ct);
+                        if (geo == null)
+                        {
+                            // Skip not-found houses, but keep going
+                            continue;
+                        }
+
+                        var finalAddress =
+                            geo.Value.shortAddress.Any(char.IsDigit)
+                                ? geo.Value.shortAddress
+                                : addr;
+
+                        var entity = new WaterLeakReport
+                        {
+                            Address = finalAddress,
+                            Latitude = geo.Value.lat,
+                            Longitude = geo.Value.lon,
+                            Notes = dto.Notes,
+                            DateAdded = DateTime.UtcNow,
+                            Status = "New",
+                            Street = false
+                        };
+
+                        await _dataManager.WaterLeakReports.SaveWaterLeakReportAsync(entity);
+
+                        created.Add(new
+                        {
+                            id = entity.Id,
+                            address = entity.Address,
+                            lat = entity.Latitude,
+                            lon = entity.Longitude,
+                            notes = entity.Notes
+                        });
+                    }
+
+                    if (created.Count == 0)
+                        return BadRequest(new { error = $"Не вдалося знайти жодної адреси у діапазоні: {streetPart} {from}-{to}." });
+
+                    return Ok(new
+                    {
+                        range = true,
+                        requested = new { street = streetPart, from, to },
+                        created = created.Count,
+                        points = created
+                    });
+                }
+
+                // ===== POINT (address with number) =====
                 if (HasDigit(input))
                 {
                     var geo = await _geo.GeocodeAsync(dto.Address, ct);
@@ -222,7 +331,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                         geo.Value.shortAddress.Any(char.IsDigit)
                             ? geo.Value.shortAddress
                             : input;
-                     
+
                     var entity = new WaterLeakReport
                     {
                         Address = finalAddress,
@@ -246,6 +355,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                     });
                 }
 
+                // ===== STREET polyline (no digits) =====
                 var lines = await GetStreetPolylinesAsync(input, ct);
                 if (lines.Count == 0)
                     return BadRequest(new { error = $"Геометрія вулиці не знайдена для: '{dto.Address}'." });
@@ -291,7 +401,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             }
             catch (DbUpdateException ex)
             {
-                // This is the one you previously hit: EF "See inner exception"
                 return StatusCode(500, new
                 {
                     error = "DB save failed",
@@ -301,7 +410,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             }
             catch (Exception ex)
             {
-                // Geocoding errors etc.
                 return StatusCode(500, new
                 {
                     error = ex.Message,
