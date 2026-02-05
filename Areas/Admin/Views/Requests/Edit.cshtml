@@ -34,7 +34,7 @@
     </div>
 
     <div class="col-md-4">
-        <label>Установа</label>
+        <label class="form-label">Установа</label>
         <select asp-for="FacilityId" class="form-select">
             <option value="">-- оберіть установу --</option>
             @foreach (var f in facilities)
@@ -67,7 +67,7 @@
     </div>
 
     <div class="col-md-4">
-        <label>Категорія</label>
+        <label class="form-label">Категорія</label>
         <select asp-for="CategoryId" class="form-select">
             <option value="">-- оберіть --</option>
             @foreach (var c in categories)
@@ -75,6 +75,7 @@
                 <option value="@c.Id">@c.Title</option>
             }
         </select>
+        <span asp-validation-for="CategoryId" class="text-danger"></span>
     </div>
 
     <div class="col-md-3">
@@ -87,6 +88,43 @@
         <label class="form-label">Текст</label>
         <textarea asp-for="Text" class="form-control" rows="4"></textarea>
         <span asp-validation-for="Text" class="text-danger"></span>
+    </div>
+
+
+    @* ===================== PRINT / EXECUTION FIELDS ===================== *@
+    <div class="col-12">
+        <hr />
+        <h5 class="mb-2">Поля для друку / виконання</h5>
+    </div>
+
+    <div class="col-12">
+        <label class="form-label">Кому передано для виконання</label>
+        <textarea asp-for="ForwardedTo" class="form-control" rows="2"></textarea>
+        <span asp-validation-for="ForwardedTo" class="text-danger"></span>
+    </div>
+
+    <div class="col-12">
+        <label class="form-label">Інформація про хід виконання і завершення роботи</label>
+        <textarea asp-for="ExecutionProgressInfo" class="form-control" rows="4"></textarea>
+        <span asp-validation-for="ExecutionProgressInfo" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">Замовнику повідомлено (дата)</label>
+        <input asp-for="CustomerInformedOn" type="date" class="form-control" />
+        <span asp-validation-for="CustomerInformedOn" class="text-danger"></span>
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">Дата виконання</label>
+        <input asp-for="CompletedOn" type="date" class="form-control" />
+        <span asp-validation-for="CompletedOn" class="text-danger"></span>
+    </div>
+
+    <div class="col-12">
+        <label class="form-label">Відгук замовника</label>
+        <textarea asp-for="CustomerFeedback" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="CustomerFeedback" class="text-danger"></span>
     </div>
 
     <div class="col-12 d-flex gap-2">
@@ -229,6 +267,7 @@
                     return;
                 }
 
+                predominately:
                 try {
                     const items = await fetchSuggest(term);
                     render(items.slice(0, 12));

@@ -585,6 +585,9 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 model.IsCompleted = false;
 
+                // ✅ optional: if you want "completed" screen to affect IsCompleted on create
+                // model.IsCompleted = completed;
+
                 await dataManager.Requests.SaveRequestAsync(model);
             }
             else
@@ -592,6 +595,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 var entity = await dataManager.Requests.GetRequestByIdAsync(model.Id);
                 if (entity == null) return NotFound();
 
+                // ===== base fields =====
                 entity.RequestNumber = model.RequestNumber;
                 entity.Name = model.Name;
                 entity.Caller = model.Caller;
@@ -600,6 +604,13 @@ namespace SumyCRM.Areas.Admin.Controllers
                 entity.Text = model.Text;
                 entity.CategoryId = model.CategoryId;
                 entity.FacilityId = model.FacilityId;
+
+                // ===== ✅ PRINT / EXECUTION fields =====
+                entity.ForwardedTo = model.ForwardedTo;
+                entity.ExecutionProgressInfo = model.ExecutionProgressInfo;
+                entity.CustomerInformedOn = model.CustomerInformedOn;
+                entity.CustomerFeedback = model.CustomerFeedback;
+                entity.CompletedOn = model.CompletedOn;
 
                 await dataManager.Requests.SaveRequestAsync(entity);
             }
