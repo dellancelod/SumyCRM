@@ -5,8 +5,10 @@ using OpenAI.Audio;
 using SumyCRM.Data;
 using SumyCRM.Models;
 using SumyCRM.Services;
+using System.Text.RegularExpressions;
 using static SumyCRM.Services.CategoryConverter;
 using static SumyCRM.Services.TranscriptService;
+using System.Text.RegularExpressions;
 
 namespace SumyCRM.Controllers
 {
@@ -347,11 +349,9 @@ namespace SumyCRM.Controllers
         }
         private async Task<bool> HasWaterLeakMatch(string inputAddress)
         {
-            var norm = NormalizeAddr(inputAddress);
-            if (string.IsNullOrWhiteSpace(norm)) return false;
+            var user = ParseAddr(inputAddress);
+            if (string.IsNullOrWhiteSpace(user.Street)) return false;
 
-            // quick filter in SQL first (cheap)
-            // take last N most recent open leaks if you want:
             var leaks = await _dataManager.WaterLeakReports
                 .GetWaterLeakReports()
                 .Where(x => x.Status != "Done")
@@ -360,12 +360,22 @@ namespace SumyCRM.Controllers
 
             foreach (var a in leaks)
             {
-                var n2 = NormalizeAddr(a);
-                if (IsAddressClose(norm, n2)) return true;
+                var leak = ParseAddr(a);
+
+                // street must match (after your normalization)
+                if (!StreetClose(user.Street, leak.Street))
+                    continue;
+
+                // range-aware / number-aware house match
+                if (HouseMatches(leak.HouseRaw, user.HouseNumber, user.HouseRaw))
+                    return true;
+
+                // optional: fallback to your old heuristic if you want
+                // if (IsAddressClose(NormalizeAddr(inputAddress), NormalizeAddr(a))) return true;
             }
+
             return false;
         }
-
         // very simple normalization (you can expand)
         private static string NormalizeAddr(string s)
         {
@@ -387,6 +397,64 @@ namespace SumyCRM.Controllers
             return cleaned.Trim();
         }
 
+        private sealed record AddrParts(string Street, string HouseRaw, int? HouseNumber);
+
+        private static AddrParts ParseAddr(string s)
+        {
+            var n = NormalizeAddr(s);
+
+            // Expect something like: "харківська 12-24" or "харківська 13" or "харківська 13/2"
+            // We'll take last "house-ish" token as house, the rest as street.
+            var parts = n.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) return new AddrParts(n, "", null);
+
+            var house = parts[^1];
+            var street = string.Join(' ', parts.Take(parts.Length - 1)).Trim();
+
+            // extract first integer from house (e.g., "13/2" -> 13, "13а" -> 13)
+            var m = Regex.Match(house, @"^(?<num>\d+)");
+            int? num = m.Success ? int.Parse(m.Groups["num"].Value) : null;
+
+            return new AddrParts(street, house, num);
+        }
+
+        private static bool StreetClose(string a, string b)
+        {
+            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
+            // strict equality after normalization is usually best; you can expand later (typos, etc.)
+            return a == b;
+        }
+
+        private static bool HouseMatches(string leakHouseRaw, int? userHouseNum, string userHouseRaw)
+        {
+            // If user didn't give a number — can't do range logic reliably
+            if (userHouseNum is null) return false;
+
+            // Normalize dashes: "-", "–", "—"
+            var h = leakHouseRaw.Replace('–', '-').Replace('—', '-');
+
+            // 1) Range: "12-24"
+            var rm = Regex.Match(h, @"^(?<a>\d+)\s*-\s*(?<b>\d+)");
+            if (rm.Success)
+            {
+                var a = int.Parse(rm.Groups["a"].Value);
+                var b = int.Parse(rm.Groups["b"].Value);
+                var lo = Math.Min(a, b);
+                var hi = Math.Max(a, b);
+                return userHouseNum.Value >= lo && userHouseNum.Value <= hi;
+            }
+
+            // 2) Exact single number: "13" / "13а" / "13/2"
+            var sm = Regex.Match(h, @"^(?<n>\d+)");
+            if (sm.Success)
+            {
+                var n = int.Parse(sm.Groups["n"].Value);
+                return userHouseNum.Value == n;
+            }
+
+            // 3) Fallback: raw compare (rare)
+            return string.Equals(leakHouseRaw, userHouseRaw, StringComparison.OrdinalIgnoreCase);
+        }
         private static bool IsAddressClose(string a, string b)
         {
             if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return false;
