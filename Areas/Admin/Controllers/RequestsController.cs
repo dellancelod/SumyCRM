@@ -634,6 +634,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (request == null) return NotFound();
 
             request.IsCompleted = true;
+            request.CompletedOn = DateTime.UtcNow;
             await dataManager.Requests.SaveRequestAsync(request);
 
             TempData["ToastMessage"] = $"Звернення №{request.RequestNumber} позначено як виконане.";

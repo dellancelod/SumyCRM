@@ -6,6 +6,7 @@ using SumyCRM.Data.Repository.EntityFramework;
 using SumyCRM.Data.Repository.Interfaces;
 using SumyCRM.Services;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
