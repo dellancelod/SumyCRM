@@ -119,17 +119,119 @@ namespace SumyCRM.Controllers
                 var addrText = CleanTranscript(tr.Text);
 
                 // Validate via Nominatim (only Sumy results are accepted in your service)
-                var geo = await _geo.GeocodeAsync(addrText, ct);
-
-                // Asterisk-friendly plain response:
-                // "1" = OK, "0" = not found -> ask user to repeat
-                return Content(geo != null ? "1" : "0", "text/plain");
+                var isValid = await ValidateAddressWithFallbackAsync(addrText, ct);
+                return Content(isValid ? "1" : "0", "text/plain");
             }
             finally
             {
                 SafeDelete(tmpPath);
                 SafeDelete(whisperPath);
             }
+        }
+
+        private async Task<bool> ValidateAddressWithFallbackAsync(string rawAddress, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(rawAddress))
+                return false;
+
+            var candidates = BuildAddressCandidates(rawAddress);
+
+            foreach (var candidate in candidates)
+            {
+                var geo = await _geo.GeocodeAsync(candidate, ct);
+                if (geo != null)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static List<string> BuildAddressCandidates(string input)
+        {
+            var result = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void Add(string? s)
+            {
+                if (string.IsNullOrWhiteSpace(s)) return;
+                s = NormalizeSearchAddress(s);
+                if (seen.Add(s))
+                    result.Add(s);
+            }
+
+            var raw = input.Trim();
+
+            Add(raw);
+            Add("м. Суми, " + raw);
+
+            var withoutFlat = StripApartmentDetails(raw);
+            Add(withoutFlat);
+            Add("м. Суми, " + withoutFlat);
+
+            var streetOnly = StripTrailingDetails(withoutFlat);
+            Add(streetOnly);
+            Add("м. Суми, " + streetOnly);
+
+            return result;
+        }
+
+        private static string NormalizeSearchAddress(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+
+            s = s.Trim();
+
+            s = s.Replace("  ", " ")
+                 .Replace(" ,", ",")
+                 .Replace(",,", ",");
+
+            while (s.Contains("  "))
+                s = s.Replace("  ", " ");
+
+            return s.Trim(' ', ',', '.');
+        }
+
+        private static string StripApartmentDetails(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+
+            s = s.Trim();
+
+            string[] markers =
+            {
+        "квартира", "квартири", "кв", "кв.",
+        "під'їзд", "подъезд", "підїзд",
+        "поверх", "эт.", "этаж",
+        "офіс", "оф.", "офис",
+        "кімната", "комната"
+    };
+
+            foreach (var marker in markers)
+            {
+                var pattern = $@"(\s|,)+{System.Text.RegularExpressions.Regex.Escape(marker)}\s*\d+[\/\-]?\d*.*$";
+                s = System.Text.RegularExpressions.Regex.Replace(
+                    s,
+                    pattern,
+                    "",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant
+                );
+            }
+
+            return NormalizeSearchAddress(s);
+        }
+
+        private static string StripTrailingDetails(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return "";
+
+            s = NormalizeSearchAddress(s);
+
+            // если после номера дома идёт хвост через запятую — убираем его
+            var commaIndex = s.IndexOf(',');
+            if (commaIndex >= 0)
+                s = s.Substring(0, commaIndex);
+
+            return NormalizeSearchAddress(s);
         }
 
         [HttpPost("upload")]
@@ -321,7 +423,8 @@ namespace SumyCRM.Controllers
                 var addr = CleanTranscript(tr.Text);
 
                 // ===== check DB =====
-                bool found = await HasWaterLeakMatch(addr);
+                var addrForSearch = StripApartmentDetails(addr);
+                bool found = await HasWaterLeakMatch(addrForSearch);
 
                 // IMPORTANT: plain response for Asterisk
                 return Content(found ? "1" : "0", "text/plain");
