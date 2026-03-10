@@ -7,6 +7,8 @@ using SumyCRM.Models;
 using SumyCRM.Services;
 using static SumyCRM.Services.CategoryConverter;
 using static SumyCRM.Services.TranscriptService;
+using Microsoft.AspNetCore.SignalR;
+using SumyCRM.Hubs;
 
 namespace SumyCRM.Controllers
 {
@@ -18,12 +20,18 @@ namespace SumyCRM.Controllers
         private readonly DataManager _dataManager;
         private readonly IConfiguration _config;
         private readonly IGeocodingService _geo;
-        public CallsController(DataManager dataManager, IConfiguration config, IGeocodingService geo)
+        private readonly IHubContext<CallNotificationsHub> _hubContext;
+        public CallsController(
+            DataManager dataManager,
+            IConfiguration config,
+            IGeocodingService geo,
+            IHubContext<CallNotificationsHub> hubContext)
         {
             _config = config;
             _dataManager = dataManager;
             _apiKey = config["OpenAI:ApiKey"];
             _geo = geo;
+            _hubContext = hubContext;
         }
 
         [HttpGet("log")]
@@ -64,6 +72,11 @@ namespace SumyCRM.Controllers
             };
 
             await _dataManager.CallEvents.SaveCallEventAsync(ev);
+
+            if (string.Equals(eventName, "outgoing.dial", StringComparison.OrdinalIgnoreCase))
+            {
+                await SendOutgoingCallPopupAsync(caller, eventName, data, ct);
+            }
 
             // Asterisk prefers simple responses
             return Content("OK", "text/plain");
@@ -573,6 +586,29 @@ namespace SumyCRM.Controllers
                 url = record.AudioFilePath
             });
         }
+        private async Task SendOutgoingCallPopupAsync(string? caller, string? eventName, string? data, CancellationToken ct)
+        {
+            var normalizedCaller = NormalizePhone(caller);
 
+            if (string.IsNullOrWhiteSpace(normalizedCaller))
+                return;
+
+            var abonent = await _dataManager.Abonents
+                .GetAbonents()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Phone == normalizedCaller, ct);
+
+            var payload = new CallPopupDto
+            {
+                Phone = normalizedCaller,
+                Name = abonent?.Name ?? "",
+                AbonentId = abonent?.Id,
+                EventName = eventName ?? "",
+                Data = data
+            };
+
+            await _hubContext.Clients.Group("admins")
+                .SendAsync("IncomingOperatorTransfer", payload, ct);
+        }
     }
 }

@@ -1,0 +1,238 @@
+﻿@using SumyCRM.Areas.Admin.Models
+@model PaginationViewModel<Abonent>
+@{
+    int itemIndex = (Model.CurrentPage - 1) * Model.PageSize + 1;
+}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">
+        Абонентська книга
+    </h2>
+
+    <div class="d-flex align-items-center gap-2">
+        <div class="input-group input-group-sm" style="width: 250px;">
+            <span class="input-group-text bg-white">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text"
+                   id="abonentSearch"
+                   class="form-control"
+                   placeholder="Пошук абонента..." />
+        </div>
+        @if (User.IsInRole("admin"))
+        {
+            <a asp-area="Admin" asp-controller="Abonents" asp-action="Edit" asp-route-id=""
+               class="btn btn-outline-secondary btn-sm">
+                додати абонента
+            </a>
+        }
+    </div>
+</div>
+
+<div>
+    @if (Model.PageItems.Any())
+    {
+        <table class="table table-bordered table-hover">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Телефон</th>
+                    <th scope="col">ПІБ</th>
+                    <th scope="col">Адреса</th>
+                    <th scope="col">Коментар</th>
+                    @if (User.IsInRole("admin"))
+                    {
+                        <th scope="col">Дії</th>
+                    }
+                </tr>
+            </thead>
+            <tbody id="abonentsTableBody">
+                @foreach (var item in Model.PageItems)
+                {
+                    <tr class="@(item.Hidden ? "table-hidden" : "")">
+                        <th scope="row">@itemIndex</th>
+                        <td>
+                            @($"{item.Phone}")
+                        </td>
+                        <td>
+                            @($"{item.Name}")
+                        </td>
+                        <td>
+                            @($"{item.FullAddress}")
+                        </td>
+                        <td>
+                            @($"{item.Comment}")
+                        </td>
+                        <td>
+                            @if (User.IsInRole("admin"))
+                            {
+                                <a asp-area="Admin" asp-controller="Abonents" asp-action="Edit" asp-route-id="@item.Id">
+                                    <i class="fa-regular fa-pen-to-square"></i>
+                                </a>
+                            
+                                <form style="display: inline-block;" id="form-@item.Id" asp-area="Admin" asp-controller="Abonents" asp-action="Delete" method="post" class="d-inline">
+                                    <input type="hidden" name="id" value="@item.Id" />
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('@item.Id')">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </form>
+                            }
+                        </td>
+                    </tr>
+                    itemIndex += 1;
+                }
+            </tbody>
+        </table>
+    }
+    <!-- Pagination Controls -->
+    <nav id="paginationNav">
+        <ul class="pagination">
+            @if (Model.TotalPages > 1)
+
+            {
+                @if (Model.CurrentPage > 1)
+                {
+                    <li class="page-item">
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.CurrentPage - 1)" aria-label="Попередня">
+                            <span aria-hidden="true">&laquo;</span>
+                            <span class="sr-only">Previous</span>
+                        </a>
+                    </li>
+                }
+                @for (var i = 1; i <= Model.TotalPages; i++)
+                {
+                    <li class="page-item @(Model.CurrentPage == i ? "active" : "")">
+                        <a class="page-link" asp-action="Index" asp-route-page="@i">@i</a>
+                    </li>
+                }
+                @if (Model.CurrentPage < Model.TotalPages)
+                {
+                    <li class="page-item">
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.CurrentPage + 1)" aria-label="Наступна">
+                            <span aria-hidden="true">&raquo;</span>
+                            <span class="sr-only">Next</span>
+                        </a>
+                    </li>
+                }
+            }
+        </ul>
+    </nav>
+</div>
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmationLabel">Підтвердження видалення</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Ви впевнені, що хочете видалити цю категорію?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Видалити</button>
+            </div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script>
+        let formToSubmit = null;
+
+        function confirmDelete(formId) {
+            formToSubmit = document.getElementById(`form-${formId}`);
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
+            deleteModal.show();
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+            if (formToSubmit) {
+                formToSubmit.submit();
+            }
+        });
+
+        // ===== LIVE SEARCH ДЛЯ УСТАНОВ =====
+        (function () {
+            const searchInput = document.getElementById('abonentSearch');
+            const tableBody = document.getElementById('abonentsTableBody');
+            const paginationNav = document.getElementById('paginationNav');
+
+            if (!searchInput || !tableBody) return;
+
+            const isAdmin = @User.IsInRole("admin").ToString().ToLower();
+            let typingTimer = null;
+
+            searchInput.addEventListener('input', function () {
+                const term = this.value;
+
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(function () {
+
+                    // якщо строка порожня — повертаємось до звичайного режиму з пагінацією
+                    if (term.trim().length === 0) {
+                        if (paginationNav) paginationNav.style.display = 'block';
+                        // Можна або перезавантажити:
+                        window.location.href = '@Url.Action("Index", "Abonents", new { area = "Admin" })';
+                        return;
+                    }
+
+                    // ховаємо пагінацію під час пошуку
+                    if (paginationNav) paginationNav.style.display = 'none';
+
+                    const url = '@Url.Action("Search", "Abonents", new { area = "Admin" })'
+                        + '?term=' + encodeURIComponent(term);
+
+                    fetch(url)
+                        .then(r => r.json())
+                        .then(data => {
+                            tableBody.innerHTML = '';
+
+                            if (!data || data.length === 0) {
+                                const colCount = isAdmin === 'true' ? 6 : 5;
+                                tableBody.innerHTML =
+                                    `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
+                                return;
+                            }
+
+                            data.forEach(item => {
+                                const tr = document.createElement('tr');
+                                if (item.hidden) {
+                                    tr.classList.add('table-hidden');
+                                }
+
+                                let actionsHtml = '';
+                                if (isAdmin === 'true') {
+                                    actionsHtml = `
+                                        <a href="@Url.Action("Edit", "Abonents", new { area = "Admin" })/${item.id}">
+                                            <i class="fa-regular fa-pen-to-square"></i>
+                                        </a>
+                                        <form style="display: inline-block;" id="form-${item.id}"
+                                              action="@Url.Action("Delete", "Abonents", new { area = "Admin" })"
+                                              method="post" class="d-inline">
+                                            <input type="hidden" name="id" value="${item.id}" />
+                                            <button type="button" class="btn btn-sm btn-danger"
+                                                    onclick="confirmDelete('${item.id}')">
+                                                <i class="fa fa-trash"></i>
+                                            </button>
+                                        </form>`;
+                                }
+
+                                tr.innerHTML = `
+                                    <th scope="row">${item.index}</th>
+                                    <td>${item.phone ?? ''}</td>
+                                    <td>${item.name ?? ''}</td>
+                                    <td>${item.fullAddress ?? ''}</td>
+                                    <td>${item.comment ?? ''}</td>
+                                    ${isAdmin === 'true' ? `<td>${actionsHtml}</td>` : ''}
+                                `;
+
+                                tableBody.appendChild(tr);
+                            });
+                        })
+                        .catch(err => console.error('Abonents search error:', err));
+
+                }, 400); // debounce 400ms
+            });
+        })();
+    </script>
+}

@@ -5,7 +5,7 @@ using SumyCRM.Data;
 using SumyCRM.Data.Repository.EntityFramework;
 using SumyCRM.Data.Repository.Interfaces;
 using SumyCRM.Services;
-
+using SumyCRM.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +20,7 @@ builder.Services.AddTransient<IUserFacilities, EFUserFacilities>();
 builder.Services.AddTransient<ICallRecordingsRepository, EFCallRecordingsRepository>();
 builder.Services.AddTransient<IWaterLeakReports, EFWaterLeakReportsRepository>();
 builder.Services.AddTransient<ICallEventsRepository, EFCallEventsRepository>();
+builder.Services.AddTransient<IAbonentsRepository, EFAbonentsRepository>();
 
 builder.Services.AddHttpClient<IScheduleAudioService, ScheduleAudioService>();
 builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
@@ -80,6 +81,8 @@ builder.Services.AddControllersWithViews(x =>
 {
     x.Conventions.Add(new AdminAreaAuthorization("Admin", "AdminArea"));
 });
+
+builder.Services.AddSignalR();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -114,7 +117,7 @@ app.UseEndpoints((endpoints) => {
         pattern: "{controller=Home}/{action=Index}/{id?}"
     );
 });
-
+app.MapHub<CallNotificationsHub>("/hubs/call-notifications");
 
 app.UseAuthorization();
 

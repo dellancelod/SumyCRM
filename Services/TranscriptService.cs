@@ -83,5 +83,23 @@
 
             return outPath;
         }
+        public static string NormalizePhone(string phone)
+        {
+            if (string.IsNullOrWhiteSpace(phone))
+                return "";
+
+            phone = phone.Replace(" ", "")
+                         .Replace("-", "")
+                         .Replace("(", "")
+                         .Replace(")", "");
+
+            if (phone.StartsWith("+38"))
+                phone = phone.Substring(3);
+
+            if (phone.StartsWith("38"))
+                phone = phone.Substring(2);
+
+            return phone.Trim();
+        }
     }
 }
