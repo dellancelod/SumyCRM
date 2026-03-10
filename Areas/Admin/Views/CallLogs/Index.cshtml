@@ -11,7 +11,14 @@
     }
     catch
     {
-        kyivTz = TimeZoneInfo.Local;
+        try
+        {
+            kyivTz = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
+        }
+        catch
+        {
+            kyivTz = TimeZoneInfo.Local;
+        }
     }
 
     DateTime ToKyiv(DateTime dt)
@@ -29,6 +36,8 @@
                 Дзвінків: <strong>@callsCount</strong>
                 <span class="mx-2">•</span>
                 Подій: <strong>@eventsCount</strong>
+                <span class="mx-2">•</span>
+                Час: <strong>Київ</strong>
             </div>
         </div>
     </div>
@@ -59,14 +68,17 @@
         <div class="accordion" id="callsAccordion">
             @{
                 int idx = 0;
+                int phoneOrdinal = 0;
             }
             @foreach (var call in Model.Calls)
             {
                 var collapseId = $"collapse_{idx}";
                 var headingId = $"heading_{idx}";
+                idx++;
+                phoneOrdinal++;
+
                 var firstKyiv = ToKyiv(call.FirstAtUtc);
                 var lastKyiv = ToKyiv(call.LastAtUtc);
-                idx++;
 
                 <div class="accordion-item mb-2">
                     <h2 class="accordion-header" id="@headingId">
@@ -75,6 +87,7 @@
                                 aria-expanded="false" aria-controls="@collapseId">
                             <div class="w-100 d-flex justify-content-between align-items-center">
                                 <div>
+                                    <span class="badge bg-primary me-2">#@phoneOrdinal</span>
                                     <strong>@(string.IsNullOrWhiteSpace(call.Caller) ? "(unknown)" : call.Caller)</strong>
                                     <span class="text-muted ms-2">CallId: @call.CallId</span>
                                 </div>
@@ -90,19 +103,14 @@
                     <div id="@collapseId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#callsAccordion">
                         <div class="accordion-body">
                             <ul class="list-unstyled mb-0">
-                                @{
-                                    int eventNumber = 0;
-                                }
                                 @foreach (var e in call.Events)
                                 {
-                                    eventNumber++;
                                     var eventKyiv = ToKyiv(e.AtUtc);
 
                                     <li class="py-2 border-bottom">
                                         <div class="d-flex justify-content-between">
-                                            <div class="d-flex align-items-center flex-wrap gap-2">
-                                                <span class="badge bg-primary">#@eventNumber</span>
-                                                <span class="badge bg-light text-dark">@eventKyiv.ToString("HH:mm:ss")</span>
+                                            <div>
+                                                <span class="badge bg-light text-dark me-2">@eventKyiv.ToString("HH:mm:ss")</span>
                                                 <strong>@e.Event</strong>
                                             </div>
                                             <span class="text-muted small">@eventKyiv.ToString("yyyy-MM-dd")</span>
