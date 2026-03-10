@@ -629,13 +629,13 @@ namespace SumyCRM.Controllers
             if (string.IsNullOrWhiteSpace(normalizedPhone))
                 return null;
 
-            var abonent = await _dataManager.Abonents
+            var existing = await _dataManager.Abonents
                 .GetAbonents()
                 .FirstOrDefaultAsync(a => a.Phone == normalizedPhone, ct);
 
-            if (abonent == null)
+            if (existing == null)
             {
-                abonent = new Abonent
+                var newAbonent = new Abonent
                 {
                     Id = Guid.NewGuid(),
                     Phone = normalizedPhone,
@@ -643,28 +643,30 @@ namespace SumyCRM.Controllers
                     FullAddress = string.IsNullOrWhiteSpace(transcriptAddress) ? null : transcriptAddress.Trim()
                 };
 
-                await _dataManager.Abonents.SaveAbonentAsync(abonent);
-                return abonent;
+                await _dataManager.Abonents.SaveAbonentAsync(newAbonent);
+                return newAbonent;
             }
 
-            bool changed = false;
+            var changed = false;
 
-            if (string.IsNullOrWhiteSpace(abonent.Name) && !string.IsNullOrWhiteSpace(transcriptName))
+            if (string.IsNullOrWhiteSpace(existing.Name) && !string.IsNullOrWhiteSpace(transcriptName))
             {
-                abonent.Name = transcriptName.Trim();
+                existing.Name = transcriptName.Trim();
                 changed = true;
             }
 
-            if (string.IsNullOrWhiteSpace(abonent.FullAddress) && !string.IsNullOrWhiteSpace(transcriptAddress))
+            if (string.IsNullOrWhiteSpace(existing.FullAddress) && !string.IsNullOrWhiteSpace(transcriptAddress))
             {
-                abonent.FullAddress = transcriptAddress.Trim();
+                existing.FullAddress = transcriptAddress.Trim();
                 changed = true;
             }
 
             if (changed)
-                await _dataManager.Abonents.SaveAbonentAsync(abonent);
+            {
+                await _dataManager.Abonents.SaveAbonentAsync(existing);
+            }
 
-            return abonent;
+            return existing;
         }
     }
 }
