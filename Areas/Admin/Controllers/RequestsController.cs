@@ -549,19 +549,47 @@ namespace SumyCRM.Areas.Admin.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Edit(Guid? id, bool completed = false)
+        public async Task<IActionResult> Edit(
+            Guid? id,
+            bool completed = false,
+            Guid? abonentId = null,
+            string? caller = null,
+            string? name = null)
         {
             await FillEditViewBags(completed);
 
             if (!id.HasValue || id.Value == Guid.Empty)
             {
                 var nextNumber = await GetNextRequestNumberAsync();
-                return View(new Request
+
+                var model = new Request
                 {
                     IsCompleted = false,
                     RequestNumber = nextNumber
+                };
 
-                });
+                if (abonentId.HasValue && abonentId.Value != Guid.Empty)
+                {
+                    var abonent = await dataManager.Abonents.GetAbonentByIdAsync(abonentId.Value);
+                    if (abonent != null)
+                    {
+                        model.Caller = abonent.Phone;
+                        model.Name = abonent.Name;
+                        model.Address = abonent.FullAddress;
+                    }
+                    else
+                    {
+                        model.Caller = caller;
+                        model.Name = name;
+                    }
+                }
+                else
+                {
+                    model.Caller = caller;
+                    model.Name = name;
+                }
+
+                return View(model);
             }
 
             var entity = await BaseQuery()
