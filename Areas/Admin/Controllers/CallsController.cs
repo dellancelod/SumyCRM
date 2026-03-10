@@ -47,8 +47,8 @@ namespace SumyCRM.Areas.Admin.Controllers
                 await dataManager.CallRecordings.DeleteCallRecordingAsync(callRecording);
                
             }
-            return RedirectToAction(nameof(RequestsController.Index),
-                nameof(RequestsController).Replace("Controller", string.Empty),
+            return RedirectToAction(nameof(CallsController.Index),
+                nameof(CallsController).Replace("Controller", string.Empty),
                 new { page = 1, completed = true });
         }
     }
