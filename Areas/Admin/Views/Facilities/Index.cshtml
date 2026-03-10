@@ -188,7 +188,7 @@
                             tableBody.innerHTML = '';
 
                             if (!data || data.length === 0) {
-                                const colCount = isAdmin === 'true' ? 6 : 5;
+                                const colCount = isAdmin ? 6 : 5;
                                 tableBody.innerHTML =
                                     `<tr><td colspan="${colCount}" class="text-center text-muted">Нічого не знайдено</td></tr>`;
                                 return;
@@ -201,7 +201,7 @@
                                 }
 
                                 let actionsHtml = '';
-                                if (isAdmin === 'true') {
+                                if (isAdmin) {
                                     actionsHtml = `
                                         <a href="@Url.Action("Edit", "Facilities", new { area = "Admin" })/${item.id}">
                                             <i class="fa-regular fa-pen-to-square"></i>
@@ -223,7 +223,7 @@
                                     <td>${item.description ?? ''}</td>
                                     <td>${item.address ?? ''}</td>
                                     <td>${item.phones ?? ''}</td>
-                                    ${isAdmin === 'true' ? `<td>${actionsHtml}</td>` : ''}
+                                    ${isAdmin ? `<td>${actionsHtml}</td>` : ''}
                                 `;
 
                                 tableBody.appendChild(tr);
