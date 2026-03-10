@@ -19,7 +19,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             int pageSize = 7; // Items per page
 
             var categories = await dataManager.CallRecordings.GetCallRecordings()
-                .OrderByDescending(x => x.Hidden)
+                .OrderByDescending(x => x.DateAdded)
                 .ToListAsync();
 
             var pageItems = categories
