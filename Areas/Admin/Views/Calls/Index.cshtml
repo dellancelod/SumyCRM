@@ -2,9 +2,25 @@
 @model PaginationViewModel<CallRecording>
 @{
     int itemIndex = (Model.CurrentPage - 1) * Model.PageSize + 1;
+
+    TimeZoneInfo kyivTz;
+    try
+    {
+        kyivTz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kyiv");
+    }
+    catch
+    {
+        try
+        {
+            kyivTz = TimeZoneInfo.FindSystemTimeZoneById("FLE Standard Time");
+        }
+        catch
+        {
+            kyivTz = TimeZoneInfo.Local;
+        }
+    }
 }
 <div class="d-flex">
-
     <h2>Записи дзвінків</h2>
 </div>
 <div>
@@ -17,7 +33,7 @@
                     <th scope="col">Номер</th>
                     <th scope="col">Номер телефону</th>
                     <th scope="col">Запис дзвінка</th>
-                    <th scope="col">Дата</th>
+                    <th scope="col">Дата (Київ)</th>
                     @if (User.IsInRole("admin"))
                     {
                         <th scope="col">Дії</th>
@@ -27,13 +43,19 @@
             <tbody>
                 @foreach (var item in Model.PageItems)
                 {
+                    var utcDate = item.DateAdded.Kind == DateTimeKind.Utc
+                    ? item.DateAdded
+                    : DateTime.SpecifyKind(item.DateAdded, DateTimeKind.Utc);
+
+                    var kyivDate = TimeZoneInfo.ConvertTimeFromUtc(utcDate, kyivTz);
+
                     <tr class="@(item.Hidden ? "table-hidden" : "")">
                         <th scope="row">@itemIndex</th>
                         <td>
-                            @($"{item.CallNumber}")
+                            @item.CallNumber
                         </td>
                         <td>
-                            @($"{item.Caller}")
+                            @item.Caller
                         </td>
                         <td>
                             <label>
@@ -43,7 +65,7 @@
                             </label>
                         </td>
                         <td>
-                            @($"{item.DateAdded}")
+                            @kyivDate.ToString("dd.MM.yyyy HH:mm:ss")
                         </td>
                         @if (User.IsInRole("admin"))
                         {
@@ -62,11 +84,9 @@
             </tbody>
         </table>
     }
-    <!-- Pagination Controls -->
     <nav>
         <ul class="pagination">
             @if (Model.TotalPages > 1)
-
             {
                 @if (Model.CurrentPage > 1)
                 {
@@ -96,7 +116,7 @@
         </ul>
     </nav>
 </div>
-<!-- Delete Confirmation Modal -->
+
 <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -114,6 +134,7 @@
         </div>
     </div>
 </div>
+
 @section Scripts {
     <script>
         let formToSubmit = null;
