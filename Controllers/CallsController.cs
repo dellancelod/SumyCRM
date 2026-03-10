@@ -350,6 +350,14 @@ namespace SumyCRM.Controllers
             string transcriptName = CleanTranscript(transcriptionName.Text);
             string transcriptAddress = CleanTranscript(transcriptionAddress.Text);
 
+            caller = NormalizePhone(caller);
+
+            var abonent = await CreateOrUpdateAbonentAsync(
+                caller,
+                transcriptName,
+                transcriptAddress,
+                HttpContext.RequestAborted);
+
             // ===== Save in DB =====
             if (!MenuToCategory.TryGetValue(menu_item, out var categoryId))
                 return BadRequest("Unknown menu item");
@@ -609,6 +617,54 @@ namespace SumyCRM.Controllers
 
             await _hubContext.Clients.Group("admins")
                 .SendAsync("IncomingOperatorTransfer", payload, ct);
+        }
+        private async Task<Abonent?> CreateOrUpdateAbonentAsync(
+            string? caller,
+            string? transcriptName,
+            string? transcriptAddress,
+            CancellationToken ct)
+        {
+            var normalizedPhone = NormalizePhone(caller);
+
+            if (string.IsNullOrWhiteSpace(normalizedPhone))
+                return null;
+
+            var abonent = await _dataManager.Abonents
+                .GetAbonents()
+                .FirstOrDefaultAsync(a => a.Phone == normalizedPhone, ct);
+
+            if (abonent == null)
+            {
+                abonent = new Abonent
+                {
+                    Id = Guid.NewGuid(),
+                    Phone = normalizedPhone,
+                    Name = string.IsNullOrWhiteSpace(transcriptName) ? null : transcriptName.Trim(),
+                    FullAddress = string.IsNullOrWhiteSpace(transcriptAddress) ? null : transcriptAddress.Trim()
+                };
+
+                await _dataManager.Abonents.SaveAbonentAsync(abonent);
+                return abonent;
+            }
+
+            bool changed = false;
+
+            if (string.IsNullOrWhiteSpace(abonent.Name) && !string.IsNullOrWhiteSpace(transcriptName))
+            {
+                abonent.Name = transcriptName.Trim();
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(abonent.FullAddress) && !string.IsNullOrWhiteSpace(transcriptAddress))
+            {
+                abonent.FullAddress = transcriptAddress.Trim();
+                changed = true;
+            }
+
+            if (changed)
+                await _dataManager.Abonents.SaveAbonentAsync(abonent);
+
+            return abonent;
         }
     }
 }
