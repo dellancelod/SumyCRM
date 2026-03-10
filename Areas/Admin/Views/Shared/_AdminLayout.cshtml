@@ -9,30 +9,34 @@
     @await Html.PartialAsync("CssPartial")
 </head>
 
-<div id="call-popup-overlay" style="display:none;">
-    <div id="call-popup-box">
-        <div id="call-popup-title">Вхідний дзвінок на оператора</div>
-        <div class="call-popup-row">
-            <strong>Номер:</strong>
-            <span id="call-popup-phone"></span>
-        </div>
-        <div class="call-popup-row">
-            <strong>Абонент:</strong>
-            <span id="call-popup-name"></span>
-        </div>
-        <div class="call-popup-actions">
-            <a id="call-popup-open" href="#" class="btn btn-primary">Відкрити абонента</a>
-            <button type="button" id="call-popup-close" class="btn btn-secondary">Закрити</button>
+<body>
+    <div id="call-popup-overlay" style="display:none;">
+        <div id="call-popup-box">
+            <div id="call-popup-title">Вхідний дзвінок на оператора</div>
+            <div class="call-popup-row">
+                <strong>Номер:</strong>
+                <span id="call-popup-phone"></span>
+            </div>
+            <div class="call-popup-row">
+                <strong>Абонент:</strong>
+                <span id="call-popup-name"></span>
+            </div>
+            <div class="call-popup-actions">
+                <button type="button" id="call-popup-create-request" class="btn btn-primary">
+                    Створити звернення
+                </button>
+                <button type="button" id="call-popup-close" class="btn btn-secondary">
+                    Закрити
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
-<body>
     <div class="wrapper">
         @await Html.PartialAsync("_SideBarLayout")
         <div id="content">
             @await Html.PartialAsync("_TopBarLayout")
-            <div id="scrollable-content" class=" p-3 admin-body">
+            <div id="scrollable-content" class="p-3 admin-body">
                 @RenderBody()
             </div>
         </div>
@@ -40,94 +44,110 @@
         @await Html.PartialAsync("ScriptsPartial")
         @await RenderSectionAsync("Scripts", required: false)
     </div>
-</body>
-</html>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
 
-<style>
-    #call-popup-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.35);
-        z-index: 99999;
-    }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
 
-    #call-popup-box {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        width: 420px;
-        max-width: calc(100vw - 40px);
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 12px 32px rgba(0,0,0,0.25);
-        padding: 18px;
-        z-index: 100000;
-    }
+    <style>
+        #call-popup-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            z-index: 99999;
+        }
 
-    #call-popup-title {
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 12px;
-    }
+        #call-popup-box {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 420px;
+            max-width: calc(100vw - 40px);
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+            padding: 18px;
+            z-index: 100000;
+        }
 
-    .call-popup-row {
-        margin-bottom: 8px;
-        font-size: 16px;
-    }
+        #call-popup-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
 
-    .call-popup-actions {
-        display: flex;
-        gap: 10px;
-        margin-top: 16px;
-    }
-</style>
-<script>
-    (function () {
-        const overlay = document.getElementById("call-popup-overlay");
-        const phoneEl = document.getElementById("call-popup-phone");
-        const nameEl = document.getElementById("call-popup-name");
-        const openEl = document.getElementById("call-popup-open");
-        const closeEl = document.getElementById("call-popup-close");
+        .call-popup-row {
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
 
-        if (!overlay || !phoneEl || !nameEl || !openEl || !closeEl || typeof signalR === "undefined")
-            return;
+        .call-popup-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+    </style>
 
-        function showPopup(data) {
-            phoneEl.textContent = data.phone || "";
-            nameEl.textContent = data.name || "Невідомий абонент";
+    <script>
+        (function () {
+            const overlay = document.getElementById("call-popup-overlay");
+            const phoneEl = document.getElementById("call-popup-phone");
+            const nameEl = document.getElementById("call-popup-name");
+            const closeEl = document.getElementById("call-popup-close");
+            const createRequestEl = document.getElementById("call-popup-create-request");
 
-            if (data.abonentId) {
-                openEl.style.display = "inline-block";
-                openEl.href = "/Admin/Abonents/Edit/" + data.abonentId;
-            } else {
-                openEl.style.display = "none";
-                openEl.removeAttribute("href");
+            let currentPopupData = null;
+
+            if (!overlay || !phoneEl || !nameEl || !closeEl || !createRequestEl || typeof signalR === "undefined")
+                return;
+
+            function showPopup(data) {
+                currentPopupData = data || {};
+
+                phoneEl.textContent = currentPopupData.phone || "";
+                nameEl.textContent = currentPopupData.name || "Невідомий абонент";
+
+                overlay.style.display = "block";
             }
 
-            overlay.style.display = "block";
-        }
+            function hidePopup() {
+                overlay.style.display = "none";
+            }
 
-        function hidePopup() {
-            overlay.style.display = "none";
-        }
+            closeEl.addEventListener("click", hidePopup);
 
-        closeEl.addEventListener("click", hidePopup);
-        overlay.addEventListener("click", function (e) {
-            if (e.target === overlay) hidePopup();
-        });
+            overlay.addEventListener("click", function (e) {
+                if (e.target === overlay) hidePopup();
+            });
 
-        const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/hubs/call-notifications")
-            .withAutomaticReconnect()
-            .build();
+            createRequestEl.addEventListener("click", function () {
+                if (!currentPopupData) return;
 
-        connection.on("IncomingOperatorTransfer", function (data) {
-            showPopup(data);
-        });
+                const params = new URLSearchParams();
 
-        connection.start().catch(function (err) {
-            console.error("SignalR connection error:", err);
-        });
-    })();
-</script>
+                if (currentPopupData.abonentId)
+                    params.append("abonentId", currentPopupData.abonentId);
+
+                if (currentPopupData.phone)
+                    params.append("caller", currentPopupData.phone);
+
+                if (currentPopupData.name)
+                    params.append("name", currentPopupData.name);
+
+                window.location.href = "/Admin/Requests/Edit?" + params.toString();
+            });
+
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/call-notifications")
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on("IncomingOperatorTransfer", function (data) {
+                showPopup(data);
+            });
+
+            connection.start().catch(function (err) {
+                console.error("SignalR connection error:", err);
+            });
+        })();
+    </script>
+</body>
+</html>

@@ -80,9 +80,35 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return Json(result);
         }
-        public async Task<IActionResult> Edit(Guid id)
+        [HttpGet]
+        public async Task<IActionResult> Edit(Guid id, Guid? abonentId, string? caller, string? name)
         {
-            var entity = id == default ? new Abonent() : await dataManager.Abonents.GetAbonentByIdAsync(id);
+            Request entity;
+
+            if (id == default)
+            {
+                entity = new Request();
+
+                if (abonentId.HasValue)
+                {
+                    var abonent = await dataManager.Abonents.GetAbonentByIdAsync(abonentId.Value);
+                    if (abonent != null)
+                    {
+                        entity.Caller = abonent.Phone;
+                        entity.Name = abonent.Name;
+                        entity.Address = abonent.FullAddress;
+                    }
+                }
+                else
+                {
+                    entity.Caller = caller;
+                    entity.Name = name;
+                }
+            }
+            else
+            {
+                entity = await dataManager.Requests.GetRequestByIdAsync(id);
+            }
 
             return View(entity);
         }
