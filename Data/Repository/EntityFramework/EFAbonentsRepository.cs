@@ -38,14 +38,18 @@ namespace SumyCRM.Data.Repository.EntityFramework
 
         public async Task SaveAbonentAsync(Abonent entity)
         {
-            if (entity.Id == default)
-            {
-                context.Entry(entity).State = EntityState.Added;
-            }
+            if (entity.Id == Guid.Empty)
+                entity.Id = Guid.NewGuid();
+
+            var existing = await context.Abonents
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == entity.Id);
+
+            if (existing == null)
+                await context.Abonents.AddAsync(entity);
             else
-            {
-                context.Entry(entity).State = EntityState.Modified;
-            }
+                context.Abonents.Update(entity);
+
             await context.SaveChangesAsync();
         }
 
