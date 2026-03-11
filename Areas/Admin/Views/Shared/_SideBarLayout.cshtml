@@ -50,15 +50,13 @@
             </a>
             <ul class="collapse list-unstyled" id="ordersSubmenu">
                 <li>
-                    <a href="@Url.Action("All", "Requests", new { area = "Admin" })">
-                        Усі звернення
-                    </a>
+                    <a asp-area="Admin" asp-controller="Requests" asp-action="Index" asp-route-status="all">Всі звернення</a>
                 </li>
                 <li>
-                    <a href="@Url.Action("Index", "Requests", new {area="Admin", page = 1, completed = false })">Активні</a>
+                    <a asp-area="Admin" asp-controller="Requests" asp-action="Index" asp-route-status="active">Активні</a>
                 </li>
                 <li>
-                    <a href="@Url.Action("Index", "Requests", new {area="Admin", page = 1, completed = true })">Виконані</a>
+                    <a asp-area="Admin" asp-controller="Requests" asp-action="Index" asp-route-status="completed">Виконані</a>
                 </li>
             </ul>
         </li>

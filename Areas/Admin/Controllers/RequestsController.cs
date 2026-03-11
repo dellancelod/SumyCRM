@@ -41,7 +41,6 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             var userId = GetUserId();
 
-            // EXISTS (UserFacilities)
             return query.Where(r =>
                 dataManager.UserFacilities.GetUserFacilities()
                     .Any(uf => uf.UserId == userId && uf.FacilityId == r.FacilityId)
@@ -66,7 +65,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 query = query.Where(r => r.DateAdded >= dateFrom.Value.Date);
 
             if (dateTo.HasValue)
-                query = query.Where(r => r.DateAdded < dateTo.Value.Date.AddDays(1)); // inclusive day
+                query = query.Where(r => r.DateAdded < dateTo.Value.Date.AddDays(1));
 
             if (facilityId.HasValue && facilityId.Value != Guid.Empty)
                 query = query.Where(r => r.FacilityId == facilityId.Value);
@@ -93,19 +92,47 @@ namespace SumyCRM.Areas.Admin.Controllers
             );
         }
 
-        private async Task FillIndexViewBags(Guid? categoryId, Guid? facilityId, DateTime? dateFrom, DateTime? dateTo, bool completed)
+        private static bool? ParseStatusToCompleted(string? status)
         {
-            ViewBag.AreCompleted = completed;
+            return (status ?? "active").Trim().ToLower() switch
+            {
+                "active" => false,
+                "completed" => true,
+                "all" => null,
+                _ => false
+            };
+        }
+
+        private static string NormalizeStatus(string? status)
+        {
+            return (status ?? "active").Trim().ToLower() switch
+            {
+                "active" => "active",
+                "completed" => "completed",
+                "all" => "all",
+                _ => "active"
+            };
+        }
+
+        private async Task FillIndexViewBags(
+            Guid? categoryId,
+            Guid? facilityId,
+            DateTime? dateFrom,
+            DateTime? dateTo,
+            string status,
+            int pageSize)
+        {
+            ViewBag.Status = NormalizeStatus(status);
             ViewBag.SelectedCategoryId = categoryId;
-            ViewBag.SelectedFacilityId = facilityId; // ✅
+            ViewBag.SelectedFacilityId = facilityId;
             ViewBag.DateFrom = dateFrom?.ToString("yyyy-MM-dd");
             ViewBag.DateTo = dateTo?.ToString("yyyy-MM-dd");
+            ViewBag.PageSize = pageSize;
 
             ViewBag.Categories = await dataManager.Categories.GetCategories()
                 .OrderBy(c => c.Title)
                 .ToListAsync();
 
-            // ✅ Facilities list (with access filter for non-admin)
             var facilitiesQuery = dataManager.Facilities.GetFacilities().AsQueryable();
 
             if (!User.IsInRole("admin"))
@@ -134,15 +161,16 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .OrderBy(f => f.Name)
                 .ToListAsync();
         }
+
         private async Task<int> GetNextRequestNumberAsync()
         {
-            // Якщо таблиця порожня — буде 1
             var last = await dataManager.Requests.GetRequests()
                 .MaxAsync(r => (int?)r.RequestNumber);
 
             return (last ?? 0) + 1;
         }
-        static Run R(string text, bool bold = false, string fontSize = "24") // 12pt = 24
+
+        static Run R(string text, bool bold = false, string fontSize = "24")
         {
             return new Run(
                 new RunProperties(
@@ -165,7 +193,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             var headerPart = mainPart.AddNewPart<HeaderPart>();
             var headerPartId = mainPart.GetIdOfPart(headerPart);
 
-            // Header content: right-aligned "badge" made of a 1-cell table with borders/padding
             var tbl = new Table();
 
             var tblProps = new TableProperties(
@@ -187,7 +214,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             var tc = new TableCell();
             tc.AppendChild(new TableCellProperties(
                 new TableCellWidth { Type = TableWidthUnitValues.Auto, Width = "0" },
-                // padding (like your HTML badge)
                 new TableCellMargin(
                     new TopMargin { Width = "120", Type = TableWidthUnitValues.Dxa },
                     new BottomMargin { Width = "120", Type = TableWidthUnitValues.Dxa },
@@ -208,7 +234,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             headerPart.Header = new Header(tbl);
             headerPart.Header.Save();
 
-            // Attach header to section properties (first section)
             var sectProps = mainPart.Document.Body!.Elements<SectionProperties>().LastOrDefault();
             if (sectProps == null)
             {
@@ -216,25 +241,26 @@ namespace SumyCRM.Areas.Admin.Controllers
                 mainPart.Document.Body!.Append(sectProps);
             }
 
-            // NOTE: This applies to all pages. If you need FIRST PAGE ONLY, see note below.
             sectProps.RemoveAllChildren<HeaderReference>();
             sectProps.Append(new HeaderReference { Type = HeaderFooterValues.Default, Id = headerPartId });
-
-            // If you want a different first page header, Word needs "DifferentFirstPageHeaderFooter"
-            // and a HeaderReference(Type=First). See note below.
         }
+
         // ----------------- actions -----------------
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ExportPrintListDocx(
-            bool isCompleted,
-            string? headerLine,
-            string? term,
-            string? dateFrom,
-            string? dateTo,
+            string status = "active",
+            string? headerLine = null,
+            string? term = null,
+            string? dateFrom = null,
+            string? dateTo = null,
             Guid? categoryId = null,
             Guid? facilityId = null)
         {
+            var normalizedStatus = NormalizeStatus(status);
+            var completedFilter = ParseStatusToCompleted(normalizedStatus);
+
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
 
@@ -242,13 +268,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
             if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
 
-            // ✅ ONLY one status
-            query = ApplyFilters(query, isCompleted: isCompleted, categoryId, facilityId, df, dt);
+            query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);
 
-            // stable order (same as Index)
             var list = await query
-                .OrderByDescending(r => r.DateAdded)
+                .OrderBy(r => r.IsCompleted)
+                .ThenByDescending(r => r.DateAdded)
                 .ToListAsync();
 
             using var ms = new MemoryStream();
@@ -260,7 +285,6 @@ namespace SumyCRM.Areas.Admin.Controllers
 
                 AddTopRightBadgeHeader(doc, mainPart, "Інформаційний центр");
 
-                // Title
                 body.Append(
                     PCenteredBold("ІНФОРМАЦІЯ"),
                     PCenteredBold("стосовно скарг мешканців, що надійшли до відділу «Інформаційний центр» на " +
@@ -269,8 +293,14 @@ namespace SumyCRM.Areas.Admin.Controllers
 
                 body.Append(new Paragraph(R(" ")));
 
-                // Meta
-                body.Append(PSimple($"Тип: {(isCompleted ? "Виконані" : "Активні")}"));
+                var statusText = normalizedStatus switch
+                {
+                    "completed" => "Виконані",
+                    "all" => "Всі",
+                    _ => "Активні"
+                };
+
+                body.Append(PSimple($"Тип: {statusText}"));
                 body.Append(PSimple($"Кількість: {list.Count}"));
                 body.Append(PSimple($"Дата: {DateTime.Now:dd.MM.yyyy HH:mm}"));
 
@@ -282,7 +312,6 @@ namespace SumyCRM.Areas.Admin.Controllers
 
                 body.Append(new Paragraph(R(" ")));
 
-                // Table
                 var table = new Table();
 
                 table.AppendChild(new TableProperties(
@@ -331,17 +360,15 @@ namespace SumyCRM.Areas.Admin.Controllers
                 mainPart.Document.Save();
             }
 
-            var fileName = $"zvernennia_{(isCompleted ? "done" : "active")}_{DateTime.Now:yyyyMMdd_HHmm}.docx";
+            var fileName = $"zvernennia_{normalizedStatus}_{DateTime.Now:yyyyMMdd_HHmm}.docx";
             return File(
                 ms.ToArray(),
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 fileName
             );
 
-            // ---- helpers (Times New Roman) ----
             static Run R(string text, bool bold = false, string fontSize = "24")
             {
-                // fontSize: "24" = 12pt, "28" = 14pt, etc. (half-points)
                 var rp = new RunProperties(
                     new RunFonts { Ascii = "Times New Roman", HighAnsi = "Times New Roman", EastAsia = "Times New Roman" },
                     new FontSize { Val = fontSize },
@@ -386,162 +413,63 @@ namespace SumyCRM.Areas.Admin.Controllers
             Guid? categoryId = null,
             Guid? facilityId = null)
         {
-            var query = BaseQuery();
-            query = ApplyFacilityAccessFilter(query);
-
-            DateTime? df = null, dt = null;
-            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
-            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
-
-            // BOTH statuses
-            query = ApplyFilters(query, isCompleted: null, categoryId, facilityId, df, dt);
-            query = ApplySearch(query, term);
-
-            // Active first, then completed (stable)
-            var list = await query
-                .OrderBy(r => r.IsCompleted)              // false (active) first
-                .ThenByDescending(r => r.DateAdded)
-                .ToListAsync();
-            
-            
-            // Build docx
-            using var ms = new MemoryStream();
-            using (var doc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document, true))
-            {
-                var mainPart = doc.AddMainDocumentPart();
-                mainPart.Document = new Document(new Body());
-                var body = mainPart.Document.Body!;
-
-                AddTopRightBadgeHeader(doc, mainPart, "Інформаційний центр");
-
-                // Title
-                body.Append(
-                    PCenteredBold("ІНФОРМАЦІЯ"),
-                    PCenteredBold("стосовно скарг мешканців, що надійшли до відділу «Інформаційний центр» на " + (string.IsNullOrWhiteSpace(headerLine) ? "____________" : headerLine))
-                );
-
-                body.Append(new Paragraph(new Run(new Text(" "))));
-
-                // Meta
-                body.Append(PSimple($"Кількість: {list.Count}"));
-                body.Append(PSimple($"Дата: {DateTime.Now:dd.MM.yyyy HH:mm}"));
-                if (!string.IsNullOrWhiteSpace(dateFrom) || !string.IsNullOrWhiteSpace(dateTo))
-
-                body.Append(new Paragraph(new Run(new Text(" "))));
-
-                // Table
-                var table = new Table();
-
-                // basic borders
-                table.AppendChild(new TableProperties(
-                    new TableBorders(
-                        new TopBorder { Val = BorderValues.Single, Size = 6 },
-                        new BottomBorder { Val = BorderValues.Single, Size = 6 },
-                        new LeftBorder { Val = BorderValues.Single, Size = 6 },
-                        new RightBorder { Val = BorderValues.Single, Size = 6 },
-                        new InsideHorizontalBorder { Val = BorderValues.Single, Size = 6 },
-                        new InsideVerticalBorder { Val = BorderValues.Single, Size = 6 }
-                    )
-                ));
-
-                // header row
-                table.Append(
-                    TR(
-                        TH("№"),
-                        TH("Номер"),
-                        TH("Дата"),
-                        TH("Адреса"),
-                        TH("ПІБ"),
-                        TH("Телефон"),
-                        TH("Зміст скарги"),
-                        TH("Примітки")
-                    )
-                );
-
-                int idx = 1;
-                foreach (var r in list)
-                {
-                    table.Append(
-                        TR(
-                            TD(idx.ToString()),
-                            TD((r.RequestNumber).ToString()),
-                            TD(r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")),
-                            TD(r.Address ?? ""),
-                            TD(r.Name ?? ""),
-                            TD(r.Caller ?? ""),
-                            TD((r.Text ?? "").Trim()),
-                            TD("")
-                        )
-                    );
-                    idx++;
-                }
-
-                body.Append(table);
-                mainPart.Document.Save();
-            }
-
-            var fileName = $"zvernennia_{DateTime.Now:yyyyMMdd_HHmm}.docx";
-            return File(ms.ToArray(),
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                fileName);
-
-            // ---- local helpers ----
-            static Paragraph PCenteredBold(string text) =>
-                new Paragraph(
-                    new ParagraphProperties(new Justification { Val = JustificationValues.Center }),
-                    R(text, bold: true, fontSize: "28") // 14pt for title
-                );
-
-            static Paragraph PSimple(string text) =>
-                    new Paragraph(R(text, fontSize: "24")); // 12pt body text
-
-            static TableRow TR(params TableCell[] cells)
-            {
-                var tr = new TableRow();
-                foreach (var c in cells) tr.Append(c);
-                return tr;
-            }
-
-            static TableCell TH(string text) =>
-                new TableCell(
-                    new Paragraph(R(text, bold: true, fontSize: "24"))
-                );
-
-            static TableCell TD(string text) =>
-                new TableCell(
-                    new Paragraph(R(text, fontSize: "24"))
-                );
+            return await ExportPrintListDocx(
+                status: "all",
+                headerLine: headerLine,
+                term: term,
+                dateFrom: dateFrom,
+                dateTo: dateTo,
+                categoryId: categoryId,
+                facilityId: facilityId
+            );
         }
 
+        [HttpGet]
         public async Task<IActionResult> Index(
             int page = 1,
-            bool completed = false,
+            string status = "active",
             Guid? categoryId = null,
             Guid? facilityId = null,
             DateTime? dateFrom = null,
-            DateTime? dateTo = null)
+            DateTime? dateTo = null,
+            int pageSize = 5)
         {
-            const int pageSize = 5;
+            if (page < 1) page = 1;
+
+            var allowedPageSizes = new[] { 5, 10, 25, 50, 100 };
+            if (!allowedPageSizes.Contains(pageSize))
+                pageSize = 5;
+
+            var normalizedStatus = NormalizeStatus(status);
+            var completedFilter = ParseStatusToCompleted(normalizedStatus);
 
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
-            query = ApplyFilters(query, completed, categoryId, facilityId, dateFrom, dateTo);
+            query = ApplyFilters(query, completedFilter, categoryId, facilityId, dateFrom, dateTo);
 
             var total = await query.CountAsync();
 
+            var totalPages = total > 0
+                ? (int)Math.Ceiling(total / (double)pageSize)
+                : 1;
+
+            if (page > totalPages)
+                page = totalPages;
+
             var pageItems = await query
-                .OrderByDescending(r => r.RequestNumber)
+                .OrderBy(r => r.IsCompleted)
+                .ThenByDescending(r => r.DateAdded)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            await FillIndexViewBags(categoryId, facilityId, dateFrom, dateTo, completed);
+            await FillIndexViewBags(categoryId, facilityId, dateFrom, dateTo, normalizedStatus, pageSize);
 
             var model = new PaginationViewModel<Request>
             {
                 PageItems = pageItems,
                 CurrentPage = page,
-                TotalPages = (int)Math.Ceiling(total / (double)pageSize),
+                TotalPages = totalPages,
                 PageSize = pageSize
             };
 
@@ -612,10 +540,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (model.Id == Guid.Empty)
             {
                 model.IsCompleted = false;
-
-                // ✅ optional: if you want "completed" screen to affect IsCompleted on create
-                // model.IsCompleted = completed;
-
                 await dataManager.Requests.SaveRequestAsync(model);
             }
             else
@@ -623,7 +547,6 @@ namespace SumyCRM.Areas.Admin.Controllers
                 var entity = await dataManager.Requests.GetRequestByIdAsync(model.Id);
                 if (entity == null) return NotFound();
 
-                // ===== base fields =====
                 entity.RequestNumber = model.RequestNumber;
                 entity.Name = model.Name;
                 entity.Caller = model.Caller;
@@ -632,8 +555,6 @@ namespace SumyCRM.Areas.Admin.Controllers
                 entity.Text = model.Text;
                 entity.CategoryId = model.CategoryId;
                 entity.FacilityId = model.FacilityId;
-
-                // ===== ✅ PRINT / EXECUTION fields =====
                 entity.ForwardedTo = model.ForwardedTo;
                 entity.ExecutionProgressInfo = model.ExecutionProgressInfo;
                 entity.CustomerInformedOn = model.CustomerInformedOn;
@@ -643,7 +564,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 await dataManager.Requests.SaveRequestAsync(entity);
             }
 
-            return RedirectToAction(nameof(Index), new { page = 1, completed });
+            return RedirectToAction(nameof(Index), new { page = 1, status = completed ? "completed" : "active" });
         }
 
         public async Task<IActionResult> Show(Guid id)
@@ -655,6 +576,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return View(model);
         }
+
         [HttpPost]
         public async Task<IActionResult> CompleteRequest(Guid id, string? returnUrl = null)
         {
@@ -671,7 +593,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
                 return Redirect(returnUrl);
 
-            return RedirectToAction(nameof(Index), new { completed = false }); // fallback
+            return RedirectToAction(nameof(Index), new { status = "active" });
         }
 
         [HttpPost]
@@ -699,10 +621,9 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!string.IsNullOrWhiteSpace(returnUrl) && Url.IsLocalUrl(returnUrl))
                 return Redirect(returnUrl);
 
-            return RedirectToAction(nameof(Index), new { page = 1, completed = true }); // fallback
+            return RedirectToAction(nameof(Index), new { page = 1, status = "completed" });
         }
 
-        // used by your "counter" widget
         public IActionResult LoadRequests()
         {
             var query = BaseQuery().Where(r => !r.IsCompleted);
@@ -716,15 +637,18 @@ namespace SumyCRM.Areas.Admin.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Search(string term, bool completed = false)
+        public async Task<IActionResult> Search(string term, string status = "active")
         {
+            var completedFilter = ParseStatusToCompleted(status);
+
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
-            query = ApplyFilters(query, completed, null, null, null, null);
+            query = ApplyFilters(query, completedFilter, null, null, null, null);
             query = ApplySearch(query, term);
 
             var list = await query
-                .OrderByDescending(r => r.DateAdded)
+                .OrderBy(r => r.IsCompleted)
+                .ThenByDescending(r => r.DateAdded)
                 .Take(300)
                 .ToListAsync();
 
@@ -749,101 +673,27 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return Json(result);
         }
-        [HttpGet]
-        public async Task<IActionResult> All(
-            Guid? categoryId = null,
-            Guid? facilityId = null,
-            DateTime? dateFrom = null,
-            DateTime? dateTo = null)
-        {
-            // Completed toggle is not needed here, but we keep ViewBags consistent
-            await FillIndexViewBags(categoryId, facilityId, dateFrom, dateTo, completed: false);
-
-            // we don’t need initial items because page loads via AJAX
-            var model = new PaginationViewModel<Request>
-            {
-                PageItems = new List<Request>(),
-                CurrentPage = 1,
-                TotalPages = 1,
-                PageSize = 999999
-            };
-
-            return View("All", model); // Views/Admin/Requests/All.cshtml
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetAllList(
-             string? term,
-             Guid? categoryId,
-             Guid? facilityId,
-             string? dateFrom,
-             string? dateTo,
-             int page = 1,
-             int pageSize = 5)
-        {
-            if (page < 1) page = 1;
-            if (pageSize < 5) pageSize = 5;
-
-            var query = BaseQuery();
-            query = ApplyFacilityAccessFilter(query);
-
-            DateTime? df = null, dt = null;
-            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
-            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
-
-            // BOTH statuses
-            query = ApplyFilters(query, isCompleted: null, categoryId, facilityId, df, dt);
-            query = ApplySearch(query, term);
-
-            var total = await query.CountAsync();
-
-            var list = await query
-                .OrderBy(r => r.IsCompleted)                 // false (active) first, true (completed) last
-                .ThenByDescending(r => r.DateAdded)          // newest first inside each group
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
-            var items = list.Select((r, idx) => new
-            {
-                index = (page - 1) * pageSize + idx + 1,
-                id = r.Id,
-                requestNumber = r.RequestNumber,
-                name = r.Name,
-                caller = r.Caller,
-                facility = r.Facility != null ? r.Facility.Name : "",
-                category = r.Category?.Title,
-                subcategory = r.Subcategory,
-                address = r.Address,
-                text = r.Text,
-                audio = r.AudioFilePath,
-                nameAudio = r.NameAudioFilePath,
-                addressAudio = r.AddressAudioFilePath,
-                date = r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
-                isCompleted = r.IsCompleted
-            });
-
-            return Json(new
-            {
-                items,
-                total,
-                currentPage = page,
-                totalPages = (int)Math.Ceiling(total / (double)pageSize)
-            });
-        }
-
 
         [HttpGet]
         public async Task<IActionResult> GetList(
             string? term,
-            bool? isCompleted,
-            Guid? categoryId,
-            Guid? facilityId,
-            string? dateFrom,
-            string? dateTo,
+            string status = "active",
+            Guid? categoryId = null,
+            Guid? facilityId = null,
+            string? dateFrom = null,
+            string? dateTo = null,
             int page = 1,
             int pageSize = 5)
         {
+            if (page < 1) page = 1;
+
+            var allowedPageSizes = new[] { 5, 10, 25, 50, 100 };
+            if (!allowedPageSizes.Contains(pageSize))
+                pageSize = 5;
+
+            var normalizedStatus = NormalizeStatus(status);
+            var completedFilter = ParseStatusToCompleted(normalizedStatus);
+
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
 
@@ -851,13 +701,21 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
             if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
 
-            query = ApplyFilters(query, isCompleted, categoryId, facilityId, df, dt);
+            query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);
 
             var total = await query.CountAsync();
 
+            var totalPages = total > 0
+                ? (int)Math.Ceiling(total / (double)pageSize)
+                : 1;
+
+            if (page > totalPages)
+                page = totalPages;
+
             var list = await query
-                .OrderByDescending(r => r.DateAdded)
+                .OrderBy(r => r.IsCompleted)
+                .ThenByDescending(r => r.DateAdded)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -886,9 +744,11 @@ namespace SumyCRM.Areas.Admin.Controllers
                 items,
                 total,
                 currentPage = page,
-                totalPages = (int)Math.Ceiling(total / (double)pageSize)
+                pageSize,
+                totalPages
             });
         }
+
         [HttpGet]
         public async Task<IActionResult> Print(Guid id)
         {
@@ -897,12 +757,10 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             if (model == null) return NotFound();
 
-            // access control (same as other places)
             var q = ApplyFacilityAccessFilter(BaseQuery().Where(x => x.Id == id));
             var allowed = await q.AnyAsync();
             if (!allowed) return Forbid();
 
-            // ✅ Facilities list for dropdown (with access filter for non-admin)
             var facilitiesQuery = dataManager.Facilities.GetFacilities().AsQueryable();
 
             if (!User.IsInRole("admin"))
@@ -920,15 +778,19 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             return View("Print", model);
         }
+
         [HttpGet]
         public async Task<IActionResult> PrintList(
             string? term,
-            bool? isCompleted,
-            Guid? categoryId,
-            Guid? facilityId,
-            string? dateFrom,
-            string? dateTo)
+            string status = "active",
+            Guid? categoryId = null,
+            Guid? facilityId = null,
+            string? dateFrom = null,
+            string? dateTo = null)
         {
+            var normalizedStatus = NormalizeStatus(status);
+            var completedFilter = ParseStatusToCompleted(normalizedStatus);
+
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
 
@@ -936,24 +798,24 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
             if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
 
-            query = ApplyFilters(query, isCompleted, categoryId, facilityId, df, dt);
+            query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);
 
-            // IMPORTANT: order for printing
             var list = await query
-                .OrderByDescending(r => r.DateAdded)
+                .OrderBy(r => r.IsCompleted)
+                .ThenByDescending(r => r.DateAdded)
                 .ToListAsync();
 
-            // pass “header info” to the print view
-            ViewBag.AreCompleted = isCompleted ?? false;
+            ViewBag.Status = normalizedStatus;
             ViewBag.Term = term ?? "";
             ViewBag.SelectedCategoryId = categoryId;
             ViewBag.SelectedFacilityId = facilityId;
             ViewBag.DateFrom = dateFrom;
             ViewBag.DateTo = dateTo;
 
-            return View("PrintList", list); // create Views/Admin/Requests/PrintList.cshtml
+            return View("PrintList", list);
         }
+
         [HttpGet]
         public async Task<IActionResult> PrintAllList(
             string? term,
@@ -962,50 +824,31 @@ namespace SumyCRM.Areas.Admin.Controllers
             string? dateFrom,
             string? dateTo)
         {
-            var query = BaseQuery();
-            query = ApplyFacilityAccessFilter(query);
-
-            DateTime? df = null, dt = null;
-            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
-            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
-
-            // BOTH statuses => isCompleted = null
-            query = ApplyFilters(query, isCompleted: null, categoryId, facilityId, df, dt);
-            query = ApplySearch(query, term);
-
-            var list = await query
-                .OrderByDescending(r => r.DateAdded)
-                .ToListAsync();
-
-            ViewBag.Term = term ?? "";
-            ViewBag.DateFrom = dateFrom ?? "";
-            ViewBag.DateTo = dateTo ?? "";
-            ViewBag.SelectedCategoryId = categoryId;     
-            ViewBag.SelectedFacilityId = facilityId;     
-
-            return View("PrintAllList", list); // create view
+            return await PrintList(
+                term: term,
+                status: "all",
+                categoryId: categoryId,
+                facilityId: facilityId,
+                dateFrom: dateFrom,
+                dateTo: dateTo
+            );
         }
+
         public class PrintFieldsDto
         {
-            // base
             public int RequestNumber { get; set; }
             public string? Name { get; set; }
             public string? Address { get; set; }
             public string? Caller { get; set; }
             public string? Text { get; set; }
-
-            // facility
             public Guid FacilityId { get; set; }
-
-            // print fields
             public string? ForwardedTo { get; set; }
             public string? ExecutionProgressInfo { get; set; }
             public string? CustomerFeedback { get; set; }
-
-            // ✅ real datetime
             public DateTime? CustomerInformedOn { get; set; }
             public DateTime? CompletedOn { get; set; }
         }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdatePrintFields(Guid id, PrintFieldsDto dto)
@@ -1019,17 +862,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             var entity = await dataManager.Requests.GetRequestByIdAsync(id);
             if (entity == null) return NotFound();
 
-            // base fields
             entity.RequestNumber = dto.RequestNumber;
             entity.Name = dto.Name?.Trim();
             entity.Address = dto.Address?.Trim();
             entity.Caller = dto.Caller?.Trim();
             entity.Text = dto.Text?.Trim();
-
-            // facility
             entity.FacilityId = dto.FacilityId;
-
-            // print fields
             entity.ForwardedTo = dto.ForwardedTo?.Trim();
             entity.ExecutionProgressInfo = dto.ExecutionProgressInfo?.Trim();
             entity.CustomerFeedback = dto.CustomerFeedback?.Trim();
@@ -1038,8 +876,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             await dataManager.Requests.SaveRequestAsync(entity);
 
-            TempData["ToastMessage"] =
-                $"Дані друк-форми для звернення №{entity.RequestNumber} збережено.";
+            TempData["ToastMessage"] = $"Дані друк-форми для звернення №{entity.RequestNumber} збережено.";
             TempData["ToastType"] = "success";
 
             return RedirectToAction(nameof(Print), new { id });
