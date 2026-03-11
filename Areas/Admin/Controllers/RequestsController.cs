@@ -29,6 +29,14 @@ namespace SumyCRM.Areas.Admin.Controllers
         private IQueryable<Request> BaseQuery()
         {
             return dataManager.Requests.GetRequests()
+                .AsNoTracking()
+                .AsQueryable();
+        }
+
+        private IQueryable<Request> BaseQueryWithIncludes()
+        {
+            return dataManager.Requests.GetRequests()
+                .AsNoTracking()
                 .Include(r => r.Category)
                 .Include(r => r.Facility)
                 .AsQueryable();
@@ -77,17 +85,30 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (string.IsNullOrWhiteSpace(term))
                 return query;
 
-            term = term.Trim().ToLower();
+            term = term.Trim();
+
+            if (int.TryParse(term, out var requestNumber))
+            {
+                return query.Where(r =>
+                    r.RequestNumber == requestNumber ||
+                    EF.Functions.Like(r.Name ?? "", $"%{term}%") ||
+                    EF.Functions.Like(r.Caller ?? "", $"%{term}%") ||
+                    EF.Functions.Like(r.Address ?? "", $"%{term}%") ||
+                    EF.Functions.Like(r.Text ?? "", $"%{term}%") ||
+                    EF.Functions.Like(r.Subcategory ?? "", $"%{term}%") ||
+                    (r.Category != null && EF.Functions.Like(r.Category.Title ?? "", $"%{term}%")) ||
+                    (r.Facility != null && EF.Functions.Like(r.Facility.Name ?? "", $"%{term}%"))
+                );
+            }
 
             return query.Where(r =>
-                r.RequestNumber.ToString().ToLower().Contains(term) ||
-                (r.Name ?? "").ToLower().Contains(term) ||
-                (r.Caller ?? "").ToLower().Contains(term) ||
-                (r.Facility != null ? r.Facility.Name : "").ToLower().Contains(term) ||
-                (r.Subcategory ?? "").ToLower().Contains(term) ||
-                (r.Address ?? "").ToLower().Contains(term) ||
-                (r.Text ?? "").ToLower().Contains(term) ||
-                (r.Category != null ? r.Category.Title : "").ToLower().Contains(term)
+                EF.Functions.Like(r.Name ?? "", $"%{term}%") ||
+                EF.Functions.Like(r.Caller ?? "", $"%{term}%") ||
+                EF.Functions.Like(r.Address ?? "", $"%{term}%") ||
+                EF.Functions.Like(r.Text ?? "", $"%{term}%") ||
+                EF.Functions.Like(r.Subcategory ?? "", $"%{term}%") ||
+                (r.Category != null && EF.Functions.Like(r.Category.Title ?? "", $"%{term}%")) ||
+                (r.Facility != null && EF.Functions.Like(r.Facility.Name ?? "", $"%{term}%"))
             );
         }
 
@@ -124,11 +145,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             return null;
         }
 
-        private static string ToDateTimeLocalValue(DateTime? value)
-        {
-            return value?.ToString("yyyy-MM-ddTHH:mm") ?? "";
-        }
-
         private async Task FillIndexViewBags(
             Guid? categoryId,
             Guid? facilityId,
@@ -145,10 +161,13 @@ namespace SumyCRM.Areas.Admin.Controllers
             ViewBag.PageSize = pageSize;
 
             ViewBag.Categories = await dataManager.Categories.GetCategories()
+                .AsNoTracking()
                 .OrderBy(c => c.Title)
                 .ToListAsync();
 
-            var facilitiesQuery = dataManager.Facilities.GetFacilities().AsQueryable();
+            var facilitiesQuery = dataManager.Facilities.GetFacilities()
+                .AsNoTracking()
+                .AsQueryable();
 
             if (!User.IsInRole("admin"))
             {
@@ -169,10 +188,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             ViewBag.Completed = completed;
 
             ViewBag.Categories = await dataManager.Categories.GetCategories()
+                .AsNoTracking()
                 .OrderBy(c => c.Title)
                 .ToListAsync();
 
             ViewBag.Facilities = await dataManager.Facilities.GetFacilities()
+                .AsNoTracking()
                 .OrderBy(f => f.Name)
                 .ToListAsync();
         }
@@ -180,6 +201,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         private async Task<int> GetNextRequestNumberAsync()
         {
             var last = await dataManager.Requests.GetRequests()
+                .AsNoTracking()
                 .MaxAsync(r => (int?)r.RequestNumber);
 
             return (last ?? 0) + 1;
@@ -276,7 +298,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             var normalizedStatus = NormalizeStatus(status);
             var completedFilter = ParseStatusToCompleted(normalizedStatus);
 
-            var query = BaseQuery();
+            var query = BaseQueryWithIncludes();
             query = ApplyFacilityAccessFilter(query);
 
             var df = ParseDateTimeLocal(dateFrom);
@@ -446,47 +468,23 @@ namespace SumyCRM.Areas.Admin.Controllers
             Guid? facilityId = null,
             string? dateFrom = null,
             string? dateTo = null,
-            int pageSize = 5)
+            int pageSize = 25)
         {
             if (page < 1) page = 1;
 
             var allowedPageSizes = new[] { 5, 10, 25, 50, 100 };
             if (!allowedPageSizes.Contains(pageSize))
-                pageSize = 5;
+                pageSize = 25;
 
             var normalizedStatus = NormalizeStatus(status);
-            var completedFilter = ParseStatusToCompleted(normalizedStatus);
-
-            var df = ParseDateTimeLocal(dateFrom);
-            var dt = ParseDateTimeLocal(dateTo);
-
-            var query = BaseQuery();
-            query = ApplyFacilityAccessFilter(query);
-            query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
-
-            var total = await query.CountAsync();
-
-            var totalPages = total > 0
-                ? (int)Math.Ceiling(total / (double)pageSize)
-                : 1;
-
-            if (page > totalPages)
-                page = totalPages;
-
-            var pageItems = await query
-                .OrderBy(r => r.IsCompleted)
-                .ThenByDescending(r => r.DateAdded)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
 
             await FillIndexViewBags(categoryId, facilityId, dateFrom, dateTo, normalizedStatus, pageSize);
 
             var model = new PaginationViewModel<Request>
             {
-                PageItems = pageItems,
-                CurrentPage = page,
-                TotalPages = totalPages,
+                PageItems = new List<Request>(),
+                CurrentPage = 1,
+                TotalPages = 1,
                 PageSize = pageSize
             };
 
@@ -537,7 +535,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 return View(model);
             }
 
-            var entity = await BaseQuery()
+            var entity = await BaseQueryWithIncludes()
                 .FirstOrDefaultAsync(r => r.Id == id.Value);
 
             if (entity == null) return NotFound();
@@ -586,7 +584,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
         public async Task<IActionResult> Show(Guid id)
         {
-            var model = await BaseQuery()
+            var model = await BaseQueryWithIncludes()
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (model == null) return NotFound();
@@ -658,7 +656,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         {
             var completedFilter = ParseStatusToCompleted(status);
 
-            var query = BaseQuery();
+            var query = BaseQueryWithIncludes();
             query = ApplyFacilityAccessFilter(query);
             query = ApplyFilters(query, completedFilter, null, null, null, null);
             query = ApplySearch(query, term);
@@ -667,25 +665,42 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .OrderBy(r => r.IsCompleted)
                 .ThenByDescending(r => r.DateAdded)
                 .Take(300)
+                .Select((r) => new
+                {
+                    id = r.Id,
+                    requestNumber = r.RequestNumber,
+                    name = r.Name,
+                    caller = r.Caller,
+                    facility = r.Facility != null ? r.Facility.Name : "",
+                    category = r.Category != null ? r.Category.Title : "",
+                    subcategory = r.Subcategory,
+                    address = r.Address,
+                    text = r.Text,
+                    nameAudio = r.NameAudioFilePath,
+                    addressAudio = r.AddressAudioFilePath,
+                    audio = r.AudioFilePath,
+                    date = r.DateAdded,
+                    isCompleted = r.IsCompleted
+                })
                 .ToListAsync();
 
             var result = list.Select((r, idx) => new
             {
                 index = idx + 1,
-                id = r.Id,
-                requestNumber = r.RequestNumber,
-                name = r.Name,
-                caller = r.Caller,
-                facility = r.Facility != null ? r.Facility.Name : "",
-                category = r.Category?.Title,
-                subcategory = r.Subcategory,
-                address = r.Address,
-                text = r.Text,
-                nameAudio = r.NameAudioFilePath,
-                addressAudio = r.AddressAudioFilePath,
-                audio = r.AudioFilePath,
-                date = r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
-                isCompleted = r.IsCompleted
+                r.id,
+                r.requestNumber,
+                r.name,
+                r.caller,
+                r.facility,
+                r.category,
+                r.subcategory,
+                r.address,
+                r.text,
+                r.nameAudio,
+                r.addressAudio,
+                r.audio,
+                date = r.date.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
+                r.isCompleted
             });
 
             return Json(result);
@@ -700,18 +715,18 @@ namespace SumyCRM.Areas.Admin.Controllers
             string? dateFrom = null,
             string? dateTo = null,
             int page = 1,
-            int pageSize = 5)
+            int pageSize = 25)
         {
             if (page < 1) page = 1;
 
             var allowedPageSizes = new[] { 5, 10, 25, 50, 100 };
             if (!allowedPageSizes.Contains(pageSize))
-                pageSize = 5;
+                pageSize = 25;
 
             var normalizedStatus = NormalizeStatus(status);
             var completedFilter = ParseStatusToCompleted(normalizedStatus);
 
-            var query = BaseQuery();
+            var query = BaseQueryWithIncludes();
             query = ApplyFacilityAccessFilter(query);
 
             var df = ParseDateTimeLocal(dateFrom);
@@ -729,28 +744,45 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (page > totalPages)
                 page = totalPages;
 
-            var list = await query
+            var rawItems = await query
                 .OrderBy(r => r.IsCompleted)
                 .ThenByDescending(r => r.DateAdded)
+                .Select(r => new
+                {
+                    r.Id,
+                    r.RequestNumber,
+                    r.Name,
+                    r.Caller,
+                    Facility = r.Facility != null ? r.Facility.Name : "",
+                    Category = r.Category != null ? r.Category.Title : "",
+                    r.Subcategory,
+                    r.Address,
+                    r.Text,
+                    Audio = r.AudioFilePath,
+                    NameAudio = r.NameAudioFilePath,
+                    AddressAudio = r.AddressAudioFilePath,
+                    r.DateAdded,
+                    r.IsCompleted
+                })
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            var items = list.Select((r, idx) => new
+            var items = rawItems.Select((r, idx) => new
             {
                 index = (page - 1) * pageSize + idx + 1,
                 id = r.Id,
                 requestNumber = r.RequestNumber,
                 name = r.Name,
                 caller = r.Caller,
-                facility = r.Facility != null ? r.Facility.Name : "",
-                category = r.Category?.Title,
+                facility = r.Facility,
+                category = r.Category,
                 subcategory = r.Subcategory,
                 address = r.Address,
                 text = r.Text,
-                audio = r.AudioFilePath,
-                nameAudio = r.NameAudioFilePath,
-                addressAudio = r.AddressAudioFilePath,
+                audio = r.Audio,
+                nameAudio = r.NameAudio,
+                addressAudio = r.AddressAudio,
                 date = r.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss"),
                 isCompleted = r.IsCompleted
             });
@@ -768,16 +800,18 @@ namespace SumyCRM.Areas.Admin.Controllers
         [HttpGet]
         public async Task<IActionResult> Print(Guid id)
         {
-            var model = await BaseQuery()
+            var model = await BaseQueryWithIncludes()
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (model == null) return NotFound();
 
-            var q = ApplyFacilityAccessFilter(BaseQuery().Where(x => x.Id == id));
+            var q = ApplyFacilityAccessFilter(BaseQueryWithIncludes().Where(x => x.Id == id));
             var allowed = await q.AnyAsync();
             if (!allowed) return Forbid();
 
-            var facilitiesQuery = dataManager.Facilities.GetFacilities().AsQueryable();
+            var facilitiesQuery = dataManager.Facilities.GetFacilities()
+                .AsNoTracking()
+                .AsQueryable();
 
             if (!User.IsInRole("admin"))
             {
@@ -807,7 +841,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             var normalizedStatus = NormalizeStatus(status);
             var completedFilter = ParseStatusToCompleted(normalizedStatus);
 
-            var query = BaseQuery();
+            var query = BaseQueryWithIncludes();
             query = ApplyFacilityAccessFilter(query);
 
             var df = ParseDateTimeLocal(dateFrom);
@@ -869,7 +903,7 @@ namespace SumyCRM.Areas.Admin.Controllers
         public async Task<IActionResult> UpdatePrintFields(Guid id, PrintFieldsDto dto)
         {
             var allowed = await ApplyFacilityAccessFilter(
-                BaseQuery().Where(x => x.Id == id)
+                BaseQueryWithIncludes().Where(x => x.Id == id)
             ).AnyAsync();
 
             if (!allowed) return Forbid();
