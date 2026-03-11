@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 using SumyCRM.Areas.Admin.Models;
 using SumyCRM.Data;
 using SumyCRM.Models;
-using System.ComponentModel.DataAnnotations;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
@@ -62,10 +61,10 @@ namespace SumyCRM.Areas.Admin.Controllers
                 query = query.Where(r => r.CategoryId == categoryId.Value);
 
             if (dateFrom.HasValue)
-                query = query.Where(r => r.DateAdded >= dateFrom.Value.Date);
+                query = query.Where(r => r.DateAdded >= dateFrom.Value);
 
             if (dateTo.HasValue)
-                query = query.Where(r => r.DateAdded < dateTo.Value.Date.AddDays(1));
+                query = query.Where(r => r.DateAdded <= dateTo.Value);
 
             if (facilityId.HasValue && facilityId.Value != Guid.Empty)
                 query = query.Where(r => r.FacilityId == facilityId.Value);
@@ -114,19 +113,35 @@ namespace SumyCRM.Areas.Admin.Controllers
             };
         }
 
+        private static DateTime? ParseDateTimeLocal(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            if (DateTime.TryParse(value, out var parsed))
+                return parsed;
+
+            return null;
+        }
+
+        private static string ToDateTimeLocalValue(DateTime? value)
+        {
+            return value?.ToString("yyyy-MM-ddTHH:mm") ?? "";
+        }
+
         private async Task FillIndexViewBags(
             Guid? categoryId,
             Guid? facilityId,
-            DateTime? dateFrom,
-            DateTime? dateTo,
+            string? dateFrom,
+            string? dateTo,
             string status,
             int pageSize)
         {
             ViewBag.Status = NormalizeStatus(status);
             ViewBag.SelectedCategoryId = categoryId;
             ViewBag.SelectedFacilityId = facilityId;
-            ViewBag.DateFrom = dateFrom?.ToString("yyyy-MM-dd");
-            ViewBag.DateTo = dateTo?.ToString("yyyy-MM-dd");
+            ViewBag.DateFrom = dateFrom ?? "";
+            ViewBag.DateTo = dateTo ?? "";
             ViewBag.PageSize = pageSize;
 
             ViewBag.Categories = await dataManager.Categories.GetCategories()
@@ -264,9 +279,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
 
-            DateTime? df = null, dt = null;
-            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
-            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+            var df = ParseDateTimeLocal(dateFrom);
+            var dt = ParseDateTimeLocal(dateTo);
 
             query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);
@@ -430,8 +444,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             string status = "active",
             Guid? categoryId = null,
             Guid? facilityId = null,
-            DateTime? dateFrom = null,
-            DateTime? dateTo = null,
+            string? dateFrom = null,
+            string? dateTo = null,
             int pageSize = 5)
         {
             if (page < 1) page = 1;
@@ -443,9 +457,12 @@ namespace SumyCRM.Areas.Admin.Controllers
             var normalizedStatus = NormalizeStatus(status);
             var completedFilter = ParseStatusToCompleted(normalizedStatus);
 
+            var df = ParseDateTimeLocal(dateFrom);
+            var dt = ParseDateTimeLocal(dateTo);
+
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
-            query = ApplyFilters(query, completedFilter, categoryId, facilityId, dateFrom, dateTo);
+            query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
 
             var total = await query.CountAsync();
 
@@ -697,9 +714,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
 
-            DateTime? df = null, dt = null;
-            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
-            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+            var df = ParseDateTimeLocal(dateFrom);
+            var dt = ParseDateTimeLocal(dateTo);
 
             query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);
@@ -794,9 +810,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             var query = BaseQuery();
             query = ApplyFacilityAccessFilter(query);
 
-            DateTime? df = null, dt = null;
-            if (!string.IsNullOrWhiteSpace(dateFrom) && DateTime.TryParse(dateFrom, out var tmpDf)) df = tmpDf;
-            if (!string.IsNullOrWhiteSpace(dateTo) && DateTime.TryParse(dateTo, out var tmpDt)) dt = tmpDt;
+            var df = ParseDateTimeLocal(dateFrom);
+            var dt = ParseDateTimeLocal(dateTo);
 
             query = ApplyFilters(query, completedFilter, categoryId, facilityId, df, dt);
             query = ApplySearch(query, term);

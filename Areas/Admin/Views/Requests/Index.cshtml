@@ -77,7 +77,7 @@
         </select>
     </div>
 
-    <div class="col-md-3">
+    <div class="col-md-2">
         <label class="form-label form-label-sm">Категорія</label>
         <select name="categoryId" class="form-select form-select-sm">
             <option value="">Всі категорії</option>
@@ -91,7 +91,7 @@
         </select>
     </div>
 
-    <div class="col-md-3">
+    <div class="col-md-2">
         <label class="form-label form-label-sm">Установа</label>
         <select name="facilityId" class="form-select form-select-sm">
             <option value="">Всі установи</option>
@@ -106,22 +106,22 @@
     </div>
 
     <div class="col-md-2">
-        <label class="form-label form-label-sm">Від дати</label>
-        <input type="date"
+        <label class="form-label form-label-sm">Від</label>
+        <input type="datetime-local"
                name="dateFrom"
                value="@dateFrom"
                class="form-control form-control-sm" />
     </div>
 
     <div class="col-md-2">
-        <label class="form-label form-label-sm">До дати</label>
-        <input type="date"
+        <label class="form-label form-label-sm">До</label>
+        <input type="datetime-local"
                name="dateTo"
                value="@dateTo"
                class="form-control form-control-sm" />
     </div>
 
-    <div class="col-md-12 d-flex gap-2">
+    <div class="col-md-2 d-flex gap-2">
         <button type="submit" class="btn btn-primary btn-sm">
             Застосувати
         </button>
@@ -360,10 +360,10 @@
     <script>
         (function () {
             const message = @Html.Raw(
-                            System.Text.Json.JsonSerializer.Serialize(
-                                    TempData["ToastMessage"]?.ToString() ?? ""
-                            )
-                    );
+                                                    System.Text.Json.JsonSerializer.Serialize(
+                                                                    TempData["ToastMessage"]?.ToString() ?? ""
+                                                    )
+                                    );
         const type = '@(TempData["ToastType"]?.ToString() ?? "success")';
 
             if (!message) return;
@@ -456,12 +456,12 @@
 
     <script>
         (function () {
-            const searchInput   = document.getElementById('requestSearch');
-            const tableBody     = document.getElementById('requestsTableBody');
+            const searchInput = document.getElementById('requestSearch');
+            const tableBody = document.getElementById('requestsTableBody');
             const paginationNav = document.getElementById('paginationNav');
-            const filtersForm   = document.getElementById('filtersForm');
-            const pageInput     = document.getElementById('pageInput');
-            const badge         = document.getElementById('requestsCountBadge');
+            const filtersForm = document.getElementById('filtersForm');
+            const pageInput = document.getElementById('pageInput');
+            const badge = document.getElementById('requestsCountBadge');
             const pageSizeSelect = document.getElementById('pageSizeSelect');
             const statusSelect = document.getElementById('statusSelect');
 
@@ -498,10 +498,10 @@
             function getFilters() {
                 const categoryId = document.querySelector('select[name="categoryId"]')?.value || '';
                 const facilityId = document.querySelector('select[name="facilityId"]')?.value || '';
-                const dateFrom   = document.querySelector('input[name="dateFrom"]')?.value || '';
-                const dateTo     = document.querySelector('input[name="dateTo"]')?.value || '';
-                const status     = statusSelect?.value || state.status;
-                const pageSize   = pageSizeSelect?.value || String(state.pageSize);
+                const dateFrom = document.querySelector('input[name="dateFrom"]')?.value || '';
+                const dateTo = document.querySelector('input[name="dateTo"]')?.value || '';
+                const status = statusSelect?.value || state.status;
+                const pageSize = pageSizeSelect?.value || String(state.pageSize);
 
                 return { categoryId, facilityId, dateFrom, dateTo, status, pageSize };
             }
@@ -636,7 +636,7 @@
             function renderPagination(data) {
                 if (!paginationNav) return;
 
-                const totalPages  = Number(data?.totalPages || 0);
+                const totalPages = Number(data?.totalPages || 0);
                 const currentPage = Number(data?.currentPage || state.page);
 
                 if (!totalPages || totalPages <= 1) {
