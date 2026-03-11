@@ -371,21 +371,21 @@ namespace SumyCRM.Controllers
             var facility = await _dataManager.Facilities.GetFacilityByIdAsync(new Guid("9e10c51c-668e-4297-a18b-30cf66b2f2ae"));
 
             var record = new Request
-            {
-                RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
-                CategoryId = category.Id,
-                Category = category,
-                Caller = caller,
-                Name = transcriptName,
-                Facility = facility,
-                Subcategory = menu_text,
-                Address = transcriptAddress,
-                Text = transcriptText,
-                IsCompleted = false,
-                AudioFilePath = "/audio/" + fileNameForText,
-                NameAudioFilePath = "/audio/" + fileNameForName,
-                AddressAudioFilePath = "/audio/" + fileNameForAddress
-            };
+{
+    RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
+    CategoryId = category.Id,
+    Category = category,
+    Caller = caller,
+    Name = transcriptName,
+    Facility = facility,
+    Subcategory = menu_text,
+    Address = transcriptAddress,
+    Text = transcriptText,
+    IsCompleted = false,
+    AudioFilePath = "/audio/" + fileNameForText,
+    NameAudioFilePath = "/audio/" + fileNameForName,
+    AddressAudioFilePath = "/audio/" + fileNameForAddress
+};
 
             await _dataManager.Requests.SaveRequestAsync(record);
 
@@ -629,13 +629,13 @@ namespace SumyCRM.Controllers
             if (string.IsNullOrWhiteSpace(normalizedPhone))
                 return null;
 
-            var existing = await _dataManager.Abonents
+            var abonent = await _dataManager.Abonents
                 .GetAbonents()
                 .FirstOrDefaultAsync(a => a.Phone == normalizedPhone, ct);
 
-            if (existing == null)
+            if (abonent == null)
             {
-                var newAbonent = new Abonent
+                abonent = new Abonent
                 {
                     Id = Guid.NewGuid(),
                     Phone = normalizedPhone,
@@ -643,30 +643,28 @@ namespace SumyCRM.Controllers
                     FullAddress = string.IsNullOrWhiteSpace(transcriptAddress) ? null : transcriptAddress.Trim()
                 };
 
-                await _dataManager.Abonents.SaveAbonentAsync(newAbonent);
-                return newAbonent;
+                await _dataManager.Abonents.SaveAbonentAsync(abonent);
+                return abonent;
             }
 
-            var changed = false;
+            bool changed = false;
 
-            if (string.IsNullOrWhiteSpace(existing.Name) && !string.IsNullOrWhiteSpace(transcriptName))
+            if (string.IsNullOrWhiteSpace(abonent.Name) && !string.IsNullOrWhiteSpace(transcriptName))
             {
-                existing.Name = transcriptName.Trim();
+                abonent.Name = transcriptName.Trim();
                 changed = true;
             }
 
-            if (string.IsNullOrWhiteSpace(existing.FullAddress) && !string.IsNullOrWhiteSpace(transcriptAddress))
+            if (string.IsNullOrWhiteSpace(abonent.FullAddress) && !string.IsNullOrWhiteSpace(transcriptAddress))
             {
-                existing.FullAddress = transcriptAddress.Trim();
+                abonent.FullAddress = transcriptAddress.Trim();
                 changed = true;
             }
 
             if (changed)
-            {
-                await _dataManager.Abonents.SaveAbonentAsync(existing);
-            }
+                await _dataManager.Abonents.SaveAbonentAsync(abonent);
 
-            return existing;
+            return abonent;
         }
     }
 }

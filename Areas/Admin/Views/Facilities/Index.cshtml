@@ -60,7 +60,7 @@
                             @($"{item.Address}")
                         </td>
                         <td style="white-space: pre-line;">
-                            @item.Phones
+                            @(item.Phones?.Trim())
                         </td>
                         <td>
                             @if (User.IsInRole("admin"))
@@ -222,7 +222,7 @@
                                     <td>${item.name ?? ''}</td>
                                     <td>${item.description ?? ''}</td>
                                     <td>${item.address ?? ''}</td>
-                                    <td style="white-space: pre-line;">${item.phones ?? ''}</td>
+                                    <td style="white-space: pre-line;">${(item.phones ?? '').trim()}</td>
                                     ${isAdmin  ? `<td>${actionsHtml}</td>` : ''}
                                 `;
 
