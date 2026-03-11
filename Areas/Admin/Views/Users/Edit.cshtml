@@ -1,0 +1,60 @@
+﻿@model SumyCRM.Areas.Admin.Models.UserEditViewModel
+
+@{
+    bool isNew = string.IsNullOrWhiteSpace(Model.Id.ToString());
+    ViewBag.Title = isNew ? "Створити користувача" : "Редагувати користувача";
+}
+
+<div class="container mt-5">
+    <h2 class="text-center mb-4">@ViewBag.Title</h2>
+
+    <form asp-area="Admin" asp-controller="Users" asp-action="Edit" method="post">
+        <input type="hidden" asp-for="Id" />
+
+        <div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="UserName" class="form-label"></label>
+            <input asp-for="UserName" class="form-control" />
+            <span asp-validation-for="UserName" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+            @if (!isNew)
+            {
+                <div class="form-text">
+                    Залиште порожнім, якщо не потрібно змінювати пароль.
+                </div>
+            }
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Role" class="form-label"></label>
+            <select asp-for="Role" asp-items="Model.Roles" class="form-select"></select>
+            <span asp-validation-for="Role" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="SelectedFacilityIds" class="form-label"></label>
+            <select asp-for="SelectedFacilityIds" asp-items="Model.Facilities" class="form-select" multiple size="10"></select>
+            <span asp-validation-for="SelectedFacilityIds" class="text-danger"></span>
+            <div class="form-text">Можна вибрати кілька підприємств.</div>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <button type="submit" class="btn btn-primary">Зберегти</button>
+            <a asp-area="Admin" asp-controller="Users" asp-action="Index" class="btn btn-outline-secondary">
+                Скасувати
+            </a>
+        </div>
+    </form>
+</div>
