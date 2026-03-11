@@ -119,6 +119,5 @@ app.UseEndpoints((endpoints) => {
 });
 app.MapHub<CallNotificationsHub>("/hubs/call-notifications");
 
-app.UseAuthorization();
 
 app.Run();

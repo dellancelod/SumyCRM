@@ -14,27 +14,34 @@
             </a>
         </li>
         <li>
-            <a href="#productsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
-                <i class="fa-solid fa-address-book"></i>
-                Довідник
-            </a>
-            <ul class="collapse list-unstyled" id="productsSubmenu">
-                <li>
+            @if (User.IsInRole("admin"))
+            {
+                <a href="#productsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                    <i class="fa-solid fa-address-book"></i>
+                    Довідник
+                </a>
+                <ul class="collapse list-unstyled" id="productsSubmenu">
+                    <li>
                     <a asp-area="Admin" asp-controller="Categories" asp-action="Index">Всі категорії</a>
                 </li>
                 <li>
                     <a asp-area="Admin" asp-controller="Schedule" asp-action="Index">Графіки руху</a>
                 </li>
+
                 <li>
                     <a asp-area="Admin" asp-controller="Facilities" asp-action="Index">Список установ</a>
                 </li>
+                
                 <li>
                     <a asp-area="Admin" asp-controller="Users" asp-action="Index">Користувачі</a>
                 </li>
+
                 <li>
                     <a asp-area="Admin" asp-controller="Abonents" asp-action="Index">Абонентська книга</a>
                 </li>
+                
             </ul>
+            }
         </li>
         <li>
             <a href="#ordersSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
@@ -55,6 +62,8 @@
                 </li>
             </ul>
         </li>
+        @if (User.IsInRole("admin"))
+            {
         <li>
             <a asp-area="Admin" asp-controller="Calls" asp-action="Index">
                 <i class="fa-solid fa-phone"></i>
@@ -67,6 +76,7 @@
                 Логи дзвінків
             </a>
         </li>
+            }
         <li>
             <a href="#mapsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
                 <i class="fa-regular fa-map"></i>

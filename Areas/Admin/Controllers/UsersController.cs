@@ -71,10 +71,8 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             if (!ModelState.IsValid)
                 return View(model);
-
-            var isCreate = string.IsNullOrWhiteSpace(model.Id.ToString());
-
-            if (isCreate)
+             
+            if (model.Id == Guid.Empty)
             {
                 var existingUser = await _userManager.FindByNameAsync(model.UserName.Trim());
                 if (existingUser != null)
