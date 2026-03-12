@@ -25,24 +25,22 @@ namespace SumyCRM.Models
 
         public bool IsCompleted { get; set; }
 
-        // ===================== FIELDS (for Print form) =====================
 
-        /// <summary>Кому передано для виконання</summary>
         [MaxLength(2000)]
         public string? ForwardedTo { get; set; }
 
-        /// <summary>Інформація про хід виконання і завершення роботи</summary>
         [MaxLength(4000)]
         public string? ExecutionProgressInfo { get; set; }
 
-        /// <summary>Замовнику роз'яснено, повідомлено (дата)</summary>
         public DateTime? CustomerInformedOn { get; set; }
 
-        /// <summary>Його відгук</summary>
         [MaxLength(4000)]
         public string? CustomerFeedback { get; set; }
 
-        /// <summary>Дата виконання</summary>
         public DateTime? CompletedOn { get; set; }
+        
+        [MaxLength(450)]
+        public string? ResponsibleUserId { get; set; }
+        public ApplicationUser? ResponsibleUser { get; set; }
     }
 }

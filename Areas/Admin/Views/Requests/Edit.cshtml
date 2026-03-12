@@ -1,7 +1,10 @@
-﻿@model SumyCRM.Models.Request
+﻿@using Microsoft.AspNetCore.Mvc.Rendering
+@model SumyCRM.Models.Request
 @{
     var categories = ViewBag.Categories as List<SumyCRM.Models.Category> ?? new();
     var facilities = ViewBag.Facilities as List<SumyCRM.Models.Facility> ?? new();
+    var responsibleUsers = ViewBag.ResponsibleUsers as List<SelectListItem> ?? new();
+    var currentUserId = ViewBag.CurrentUserId as string ?? "";
 
     bool completed = (bool)(ViewBag.Completed ?? false);
     ViewData["Title"] = Model?.Id == Guid.Empty ? "Нове звернення" : "Редагування звернення";
@@ -32,6 +35,7 @@
         <input asp-for="Name" class="form-control" />
         <span asp-validation-for="Name" class="text-danger"></span>
     </div>
+
 
     <div class="col-md-4">
         <label class="form-label">Установа</label>
@@ -90,8 +94,6 @@
         <span asp-validation-for="Text" class="text-danger"></span>
     </div>
 
-
-    @* ===================== PRINT / EXECUTION FIELDS ===================== *@
     <div class="col-12">
         <hr />
         <h5 class="mb-2">Поля для друку / виконання</h5>
@@ -127,6 +129,24 @@
         <span asp-validation-for="CustomerFeedback" class="text-danger"></span>
     </div>
 
+    <div class="col-md-3">
+        <label class="form-label">Відповідальний</label>
+        <div class="input-group">
+            <select asp-for="ResponsibleUserId" class="form-select">
+                <option value="">-- оберіть --</option>
+                @foreach (var u in responsibleUsers)
+                {
+                    <option value="@u.Value">@u.Text</option>
+                }
+            </select>
+            @if (!string.IsNullOrWhiteSpace(currentUserId))
+            {
+                <button type="button" class="btn btn-outline-primary" onclick="setMeResponsible()">Я</button>
+            }
+        </div>
+        <span asp-validation-for="ResponsibleUserId" class="text-danger"></span>
+    </div>
+
     <div class="col-12 d-flex gap-2">
         <button type="submit" class="btn btn-success">Зберегти</button>
         <a class="btn btn-outline-secondary"
@@ -141,11 +161,17 @@
     <partial name="_ValidationScriptsPartial" />
 
     <script>
+        function setMeResponsible() {
+            const select = document.getElementById('ResponsibleUserId');
+            if (select) {
+                select.value = '@currentUserId';
+            }
+        }
+
         (function () {
             const input = document.getElementById('addressInput');
             const box = document.getElementById('addressSuggest');
 
-            // change this if your route is different:
             const suggestUrl = '/Admin/Addresses/Suggest?term=';
 
             let aborter = null;
@@ -169,18 +195,15 @@
             }
 
             function getStreetPart(value) {
-                // We suggest by first part before comma:
-                // "Хар, 12" -> term "Хар"
                 const parts = (value || '').split(',');
                 return (parts[0] || '').trim();
             }
 
             function buildNewValue(selectedStreet) {
-                // Keep what user typed after the first comma, if any
                 const raw = input.value || '';
                 const commaIndex = raw.indexOf(',');
                 if (commaIndex >= 0) {
-                    const tail = raw.substring(commaIndex); // includes comma
+                    const tail = raw.substring(commaIndex);
                     return selectedStreet + tail;
                 }
                 return selectedStreet;
@@ -205,7 +228,6 @@
                     a.textContent = s;
 
                     a.addEventListener('mousedown', function (e) {
-                        // mousedown to avoid blur hiding before click
                         e.preventDefault();
                         input.value = buildNewValue(s);
                         hideBox();
@@ -230,7 +252,6 @@
                 activeIndex = index;
                 children[index].classList.add('active');
 
-                // ensure visible
                 const el = children[index];
                 const top = el.offsetTop;
                 const bottom = top + el.offsetHeight;
@@ -252,7 +273,6 @@
 
                 const data = await resp.json();
 
-                // support either: ["Харківська", ...] or { items: [...] }
                 if (Array.isArray(data)) return data;
                 if (data && Array.isArray(data.items)) return data.items;
 
@@ -267,12 +287,10 @@
                     return;
                 }
 
-                predominately:
                 try {
                     const items = await fetchSuggest(term);
                     render(items.slice(0, 12));
                 } catch (e) {
-                    // aborted is fine
                 }
             }
 
@@ -305,7 +323,6 @@
             });
 
             input.addEventListener('blur', function () {
-                // small delay so mousedown can fire
                 setTimeout(hideBox, 120);
             });
 

@@ -11,6 +11,8 @@
     string completedDate = Model.CompletedOn?.ToString("yyyy-MM-dd") ?? "";
 
     var facilities = ViewBag.Facilities as List<Facility> ?? new List<Facility>();
+    var responsibleUsers = ViewBag.ResponsibleUsers as List<SelectListItem> ?? new List<SelectListItem>();
+    string responsibleUserId = Model.ResponsibleUserId?.ToString() ?? "";
 }
 <!doctype html>
 <html lang="uk">
@@ -218,7 +220,15 @@
                     <div class="small">(підпис)</div>
                 </div>
                 <div class="sig center">
-                    <input class="sigline" />
+                    <select class="line-select" name="ResponsibleUserId">
+                        <option value="">—</option>
+                        @foreach (var u in responsibleUsers)
+                        {
+                            <option value="@u.Value" selected="@(u.Value == responsibleUserId)">
+                                @u.Text
+                            </option>
+                        }
+                    </select>
                     <div class="small">(П.І.Б.)</div>
                 </div>
             </div>

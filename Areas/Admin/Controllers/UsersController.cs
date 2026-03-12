@@ -54,10 +54,9 @@ namespace SumyCRM.Areas.Admin.Controllers
                 .Select(x => x.FacilityId)
                 .ToListAsync();
 
-            model.Id = Guid.TryParse(user.Id, out var parsedId) ? parsedId : Guid.Empty;
+            model.Id = new Guid(user.Id);
             model.UserName = user.UserName ?? "";
             model.Email = user.Email ?? "";
-            model.Name = user.Name ?? "";
             model.Role = roles.FirstOrDefault() ?? "operator";
             model.SelectedFacilityIds = facilityIds;
 
@@ -72,21 +71,17 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             if (!ModelState.IsValid)
                 return View(model);
-
-            var trimmedUserName = model.UserName.Trim();
-            var trimmedEmail = model.Email.Trim();
-            var trimmedName = model.Name.Trim();
-
+             
             if (model.Id == Guid.Empty)
             {
-                var existingUser = await _userManager.FindByNameAsync(trimmedUserName);
+                var existingUser = await _userManager.FindByNameAsync(model.UserName.Trim());
                 if (existingUser != null)
                 {
                     ModelState.AddModelError(nameof(model.UserName), "Користувач з таким логіном уже існує");
                     return View(model);
                 }
 
-                var existingEmail = await _userManager.FindByEmailAsync(trimmedEmail);
+                var existingEmail = await _userManager.FindByEmailAsync(model.Email.Trim());
                 if (existingEmail != null)
                 {
                     ModelState.AddModelError(nameof(model.Email), "Користувач з таким email уже існує");
@@ -101,9 +96,8 @@ namespace SumyCRM.Areas.Admin.Controllers
 
                 var user = new ApplicationUser
                 {
-                    UserName = trimmedUserName,
-                    Email = trimmedEmail,
-                    Name = trimmedName,
+                    UserName = model.UserName.Trim(),
+                    Email = model.Email.Trim(),
                     EmailConfirmed = true
                 };
 
@@ -143,27 +137,26 @@ namespace SumyCRM.Areas.Admin.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var existing = await _userManager.FindByIdAsync(model.Id.ToString());
+            var existing = await _userManager.FindByIdAsync(model.Id.ToString()!);
             if (existing == null)
                 return NotFound();
 
-            var userByName = await _userManager.FindByNameAsync(trimmedUserName);
+            var userByName = await _userManager.FindByNameAsync(model.UserName.Trim());
             if (userByName != null && userByName.Id != existing.Id)
             {
                 ModelState.AddModelError(nameof(model.UserName), "Користувач з таким логіном уже існує");
                 return View(model);
             }
 
-            var userByEmail = await _userManager.FindByEmailAsync(trimmedEmail);
+            var userByEmail = await _userManager.FindByEmailAsync(model.Email.Trim());
             if (userByEmail != null && userByEmail.Id != existing.Id)
             {
                 ModelState.AddModelError(nameof(model.Email), "Користувач з таким email уже існує");
                 return View(model);
             }
 
-            existing.UserName = trimmedUserName;
-            existing.Email = trimmedEmail;
-            existing.Name = trimmedName;
+            existing.UserName = model.UserName.Trim();
+            existing.Email = model.Email.Trim();
             existing.NormalizedUserName = _userManager.NormalizeName(existing.UserName);
             existing.NormalizedEmail = _userManager.NormalizeEmail(existing.Email);
 
