@@ -1,76 +1,399 @@
-﻿@using TraineeApplication.Model
-@model LoginViewModel
+﻿@{
+    ViewBag.Title = "Карта подій";
+}
 
-<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light" style="background: radial-gradient(circle at top left, #e3f2fd, #f5f5f5);">
-    <div class="card shadow-lg border-0" style="max-width: 420px; width: 100%; border-radius: 1rem;">
-        <div class="card-body p-4 p-md-5">
-            <div class="text-center mb-4">
-                <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
-                     style="width: 64px; height: 64px; background: #0d6efd10;">
-                    <i class="fa-solid fa-shield-halved fa-2x text-primary"></i>
-                </div>
-                <h2 class="h4 mb-1">Вхід у адмін-панель</h2>
-                <p class="text-muted mb-0">Увійдіть для керування зверненнями</p>
-            </div>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-            <form asp-area="" asp-controller="Home" asp-action="Login" method="post" novalidate>
-                @Html.AntiForgeryToken()
+<style>
+    #eventsMap {
+        width: 100%;
+        height: calc(100vh - 120px);
+        min-height: 500px;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,.08);
+    }
 
-                <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 px-3 mb-3" role="alert" style="display:none;"></div>
+    .map-toolbar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
 
-                <div class="mb-3">
-                    <label asp-for="Username" class="form-label"></label>
-                    <div class="input-group">
-                        <span class="input-group-text">
-                            <i class="fa-solid fa-user"></i>
-                        </span>
-                        <input asp-for="Username" class="form-control" autocomplete="username" />
-                    </div>
-                    <span asp-validation-for="Username" class="text-danger small"></span>
-                </div>
+    .map-legend {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 14px;
+        color: #666;
+    }
 
-                <div class="mb-3">
-                    <label asp-for="Password" class="form-label"></label>
-                    <div class="input-group">
-                        <span class="input-group-text">
-                            <i class="fa-solid fa-lock"></i>
-                        </span>
-                        <input asp-for="Password" class="form-control" type="password" autocomplete="current-password" />
-                    </div>
-                    <span asp-validation-for="Password" class="text-danger small"></span>
-                </div>
+    .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
 
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <div class="form-check">
-                        <input asp-for="RememberMe" class="form-check-input" />
-                        <label asp-for="RememberMe" class="form-check-label"></label>
-                    </div>
-                </div>
+    .popup-title {
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
 
-                <button type="submit" class="btn btn-primary w-100 py-2">
-                    <i class="fa-solid fa-right-to-bracket me-2"></i>
-                    Увійти
-                </button>
-            </form>
+    .popup-row {
+        margin-bottom: 4px;
+        font-size: 14px;
+    }
 
-            <div class="text-center mt-3 text-muted small">
-                © @DateTime.Now.Year SumyCRM
-            </div>
+    .event-marker {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        display: block;
+    }
+
+        .event-marker .pin {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 30px;
+            height: 30px;
+            margin-left: -15px;
+            margin-top: -15px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 0 2px rgba(0,0,0,.12);
+            background: #dc3545;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            line-height: 1;
+            user-select: none;
+        }
+
+        .event-marker.new::before,
+        .event-marker.new::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 30px;
+            height: 30px;
+            margin-left: -15px;
+            margin-top: -15px;
+            border-radius: 50%;
+            background: rgba(220, 53, 69, 0.28);
+            z-index: 1;
+            pointer-events: none;
+            animation: ripplePulse 1.8s ease-out infinite;
+        }
+
+        .event-marker.new::after {
+            animation-delay: 0.9s;
+        }
+
+        .event-marker.water .pin {
+            background: #1e88e5;
+        }
+
+        .event-marker.heat .pin {
+            background: #f57c00;
+        }
+
+        .event-marker.power .pin {
+            background: #fbc02d;
+            color: #222;
+        }
+
+        .event-marker.gas .pin {
+            background: #ef6c00;
+        }
+
+        .event-marker.lift .pin {
+            background: #8e24aa;
+        }
+
+        .event-marker.light .pin {
+            background: #ffd54f;
+            color: #222;
+        }
+
+        .event-marker.transport .pin {
+            background: #43a047;
+        }
+
+        .event-marker.communication .pin {
+            background: #00897b;
+        }
+
+        .event-marker.improvement .pin {
+            background: #6d4c41;
+        }
+
+        .event-marker.repair .pin {
+            background: #546e7a;
+        }
+
+        .event-marker.default .pin {
+            background: #dc3545;
+        }
+
+    @@keyframes ripplePulse {
+        0% {
+            transform: scale(1);
+            opacity: 0.85;
+        }
+
+        70% {
+            transform: scale(2.7);
+            opacity: 0;
+        }
+
+        100% {
+            transform: scale(3.1);
+            opacity: 0;
+        }
+    }
+</style>
+
+<div class="container-fluid py-3">
+    <div class="map-toolbar">
+        <div>
+            <h2 class="h4 mb-1">Карта подій</h2>
+        </div>
+
+        <div class="map-legend">
+            <span><span class="legend-dot" style="background:#dc3545;"></span>Активні</span>
         </div>
     </div>
+
+    <div id="eventsMap"></div>
 </div>
 
-@section Scripts {
-    @* unobtrusive validation needs these if not already in layout *@
-    <partial name="_ValidationScriptsPartial" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <script>
-        // show validation summary only when there are errors
-        (function () {
-            const summary = document.querySelector("[data-valmsg-summary='true']");
-            if (summary && summary.innerText.trim() !== "") {
-                summary.style.display = "block";
+<script>
+    let map;
+    let markersLayer;
+
+    const DEFAULT_LAT = 50.9077;
+    const DEFAULT_LON = 34.7981;
+    const DEFAULT_ZOOM = 12;
+    const NEW_EVENT_SECONDS = 30;
+    const KYIV_TIMEZONE = 'Europe/Kyiv';
+
+    function escapeHtml(value) {
+        if (!value) return '';
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function getKyivOffsetMinutes(dateUtc) {
+        const tzDate = new Date(dateUtc.toLocaleString('en-US', { timeZone: KYIV_TIMEZONE }));
+        return Math.round((tzDate.getTime() - dateUtc.getTime()) / 60000);
+    }
+
+    function parseServerDateAsKyiv(value) {
+        if (!value) return null;
+
+        if (value instanceof Date) {
+            return Number.isNaN(value.getTime()) ? null : value;
+        }
+
+        const s = String(value).trim();
+        if (!s) return null;
+
+        if (/[zZ]$|[+\-]\d{2}:\d{2}$/.test(s)) {
+            const d = new Date(s);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+
+        const m = s.match(
+            /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/
+        );
+
+        if (!m) {
+            const d = new Date(s);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+
+        const year = Number(m[1]);
+        const month = Number(m[2]);
+        const day = Number(m[3]);
+        const hour = Number(m[4] ?? 0);
+        const minute = Number(m[5] ?? 0);
+        const second = Number(m[6] ?? 0);
+
+        const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+        const offsetMinutes = getKyivOffsetMinutes(utcGuess);
+
+        return new Date(utcGuess.getTime() - offsetMinutes * 60000);
+    }
+
+    function formatDate(value) {
+        const d = parseServerDateAsKyiv(value);
+        if (!d) return '';
+
+        return d.toLocaleString('uk-UA', {
+            timeZone: KYIV_TIMEZONE,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    function nowInKyivAsUtcInstant() {
+        const now = new Date();
+        const kyivNowText = now.toLocaleString('en-US', { timeZone: KYIV_TIMEZONE });
+        const kyivNowLocal = new Date(kyivNowText);
+        return new Date(now.getTime() + (kyivNowLocal.getTime() - now.getTime()));
+    }
+
+    function isNewEvent(dateAdded) {
+        const created = parseServerDateAsKyiv(dateAdded);
+        if (!created) return false;
+
+        const nowKyiv = nowInKyivAsUtcInstant();
+        const ageMs = nowKyiv.getTime() - created.getTime();
+
+        return ageMs >= 0 && ageMs <= NEW_EVENT_SECONDS * 1000;
+    }
+
+    function buildPopup(item) {
+        return `
+            <div class="popup-title">Звернення №${escapeHtml(item.requestNumber)}</div>
+            <div class="popup-row"><strong>Категорія:</strong> ${escapeHtml(item.categoryName || '')}</div>
+            <div class="popup-row"><strong>Вулиця:</strong> ${escapeHtml(item.streetName || '')}</div>
+            <div class="popup-row"><strong>Адреса:</strong> ${escapeHtml(item.address || '')}</div>
+            <div class="popup-row"><strong>Дата:</strong> ${escapeHtml(formatDate(item.dateAdded))}</div>
+            <div class="popup-row"><strong>Текст:</strong> ${escapeHtml(item.text || '')}</div>
+        `;
+    }
+
+    function getCategoryMarkerMeta(categoryName) {
+        const name = (categoryName || '').toLowerCase().trim();
+
+        if (name.includes('водопостач') || name.includes('водовідвед') || name === 'гвп') {
+            return { cssClass: 'water', icon: '💧' };
+        }
+
+        if (name.includes('теплопостач')) {
+            return { cssClass: 'heat', icon: '♨️' };
+        }
+
+        if (name.includes('енергопостач')) {
+            return { cssClass: 'power', icon: '⚡' };
+        }
+
+        if (name.includes('газопостач')) {
+            return { cssClass: 'gas', icon: '🔥' };
+        }
+
+        if (name.includes('ліфт')) {
+            return { cssClass: 'lift', icon: '🛗' };
+        }
+
+        if (name.includes('освітлен')) {
+            return { cssClass: 'light', icon: '💡' };
+        }
+
+        if (name.includes('транспорт')) {
+            return { cssClass: 'transport', icon: '🚌' };
+        }
+
+        if (name.includes("зв'язок") || name.includes("звязок")) {
+            return { cssClass: 'communication', icon: '📡' };
+        }
+
+        if (name.includes('благоустр')) {
+            return { cssClass: 'improvement', icon: '🏡' };
+        }
+
+        if (name.includes('ремонт житла')) {
+            return { cssClass: 'repair', icon: '🛠️' };
+        }
+
+        return { cssClass: 'default', icon: '📍' };
+    }
+
+    function createEventIcon(item) {
+        const categoryMeta = getCategoryMarkerMeta(item.categoryName);
+        const classes = ['event-marker', categoryMeta.cssClass];
+
+        if (isNewEvent(item.dateAdded)) {
+            classes.push('new');
+        }
+
+        return L.divIcon({
+            className: '',
+            iconSize: [34, 34],
+            iconAnchor: [17, 17],
+            popupAnchor: [0, -16],
+            html: `<div class="${classes.join(' ')}"><span class="pin">${categoryMeta.icon}</span></div>`
+        });
+    }
+
+    async function loadEvents() {
+        try {
+            const response = await fetch('@Url.Action("GetMapEvents", "Home")', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+
+            if (!response.ok) {
+                console.error('Failed to load events');
+                return;
             }
-        })();
-    </script>
-}
+
+            const data = await response.json();
+
+            markersLayer.clearLayers();
+
+            for (const item of data) {
+                if (item.lat == null || item.lon == null) continue;
+
+                const marker = L.marker([item.lat, item.lon], {
+                    icon: createEventIcon(item)
+                });
+
+                marker.bindPopup(buildPopup(item));
+                marker.addTo(markersLayer);
+            }
+
+        } catch (e) {
+            console.error('Error while loading events', e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function () {
+        map = L.map('eventsMap', {
+            zoomControl: true
+        });
+
+        markersLayer = L.layerGroup().addTo(map);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        map.setView([DEFAULT_LAT, DEFAULT_LON], DEFAULT_ZOOM);
+
+        await loadEvents();
+
+        setInterval(loadEvents, 15000);
+    });
+</script>

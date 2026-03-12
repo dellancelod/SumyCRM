@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using SumyCRM.Areas.Admin.Models;
 using SumyCRM.Data;
 using SumyCRM.Models;
+using SumyCRM.Services;
 
 namespace SumyCRM.Areas.Admin.Controllers
 {
@@ -15,11 +16,13 @@ namespace SumyCRM.Areas.Admin.Controllers
     {
         private readonly DataManager dataManager;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IRequestEventService _requestEventService;
 
-        public RequestsController(DataManager dataManager, UserManager<ApplicationUser> userManager)
+        public RequestsController(DataManager dataManager, UserManager<ApplicationUser> userManager, IRequestEventService requestEventService)
         {
             this.dataManager = dataManager;
             _userManager = userManager;
+            _requestEventService = requestEventService;
         }
 
         // ----------------- helpers -----------------
@@ -571,12 +574,15 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (model.Id == Guid.Empty)
             {
                 model.IsCompleted = false;
+
                 await dataManager.Requests.SaveRequestAsync(model);
+                await _requestEventService.SyncFromRequestAsync(model, HttpContext.RequestAborted);
             }
             else
             {
                 var entity = await dataManager.Requests.GetRequestByIdAsync(model.Id);
-                if (entity == null) return NotFound();
+                if (entity == null)
+                    return NotFound();
 
                 entity.RequestNumber = model.RequestNumber;
                 entity.Name = model.Name;
@@ -592,8 +598,10 @@ namespace SumyCRM.Areas.Admin.Controllers
                 entity.CustomerInformedOn = model.CustomerInformedOn;
                 entity.CustomerFeedback = model.CustomerFeedback;
                 entity.CompletedOn = model.CompletedOn;
+                entity.IsCompleted = completed;
 
                 await dataManager.Requests.SaveRequestAsync(entity);
+                await _requestEventService.SyncFromRequestAsync(entity, HttpContext.RequestAborted);
             }
 
             return RedirectToAction(nameof(Index), new { page = 1, status = completed ? "completed" : "active" });
@@ -617,7 +625,9 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             request.IsCompleted = true;
             request.CompletedOn = DateTime.UtcNow;
+
             await dataManager.Requests.SaveRequestAsync(request);
+            await _requestEventService.SyncFromRequestAsync(request, HttpContext.RequestAborted);
 
             TempData["ToastMessage"] = $"Звернення №{request.RequestNumber} позначено як виконане.";
             TempData["ToastType"] = "success";
@@ -956,7 +966,8 @@ namespace SumyCRM.Areas.Admin.Controllers
             entity.CustomerInformedOn = dto.CustomerInformedOn;
             entity.CompletedOn = dto.CompletedOn;
 
-            await dataManager.Requests.SaveRequestAsync(entity);
+            await dataManager.Requests.SaveRequestAsync(entity); 
+            await _requestEventService.SyncFromRequestAsync(entity, HttpContext.RequestAborted);
 
             TempData["ToastMessage"] = $"Дані друк-форми для звернення №{entity.RequestNumber} збережено.";
             TempData["ToastType"] = "success";

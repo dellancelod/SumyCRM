@@ -1,67 +1,56 @@
-using System.Diagnostics;
+Ôªøusing Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SumyCRM.Data;
-using SumyCRM.Models;
-using Microsoft.AspNetCore.Mvc;
-using OpenAI;
-using OpenAI.Chat;
-using OpenAI.Audio;
-using System.IO;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using TraineeApplication.Model;
 
 namespace SumyCRM.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly UserManager<ApplicationUser> userManager;
-        private readonly SignInManager<ApplicationUser> signInManager;
+        private readonly AppDbContext _db;
 
-        private readonly DataManager _dataManager;
-        public HomeController(UserManager<ApplicationUser> userMgr, SignInManager<ApplicationUser> signInMgr,
-            DataManager dataManager, AppDbContext db)
+        public HomeController(AppDbContext db)
         {
-            userManager = userMgr;
-            signInManager = signInMgr;
-            _dataManager = dataManager;
+            _db = db;
         }
+
         [AllowAnonymous]
         public IActionResult Index()
         {
-            ViewBag.Title = "¬ı≥‰";
-            return View(new LoginViewModel());
+            ViewBag.Title = "–ö–∞—Ä—Ç–∞ –ø–æ–¥—ñ–π";
+            return View();
         }
 
-        [HttpPost]
         [AllowAnonymous]
-        public async Task<IActionResult> Login(LoginViewModel model)
+        [HttpGet]
+        public async Task<IActionResult> GetMapEvents()
         {
-            if (ModelState.IsValid)
-            {
-                ApplicationUser user = await userManager.FindByNameAsync(model.Username);
-                if (user != null)
+            var items = await _db.Events
+                .AsNoTracking()
+                .Where(x => x.Latitude != null && x.Longitude != null)
+                .OrderByDescending(x => x.DateAdded)
+                .Select(x => new
                 {
-                    await signInManager.SignOutAsync();
-                    Microsoft.AspNetCore.Identity.SignInResult result = await signInManager.PasswordSignInAsync(user, model.Password, model.RememberMe, false);
-                    if (result.Succeeded)
-                    {
-                        return RedirectToAction("Index", "Admin");
-                    }
-                }
-                ModelState.AddModelError(nameof(LoginViewModel.Username), "ÕÂ‚≥ÌËÈ ÎÓ„≥Ì ‡·Ó Ô‡ÓÎ¸");
-            }
-            return View("Index", model);
-        }
+                    id = x.Id,
+                    requestId = x.RequestId,
+                    requestNumber = x.RequestNumber,
+                    categoryName = x.CategoryName,
+                    streetName = x.StreetName,
+                    address = x.Address,
+                    text = x.Text,
+                    lat = x.Latitude,
+                    lon = x.Longitude,
+                    isCompleted = x.IsCompleted,
 
+                    // –Ø–í–ù–û UTC ISO
+                    dateAdded = x.DateAdded.Kind == DateTimeKind.Utc
+                        ? x.DateAdded.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                        : DateTime.SpecifyKind(x.DateAdded, DateTimeKind.Utc)
+                            .ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                })
+                .ToListAsync();
 
-        [Authorize]
-        public async Task<IActionResult> Logout()
-        {
-            await signInManager.SignOutAsync();
-            return RedirectToAction("Index", "Home");
+            return Json(items);
         }
-       
     }
-
 }

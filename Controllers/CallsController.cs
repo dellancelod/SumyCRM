@@ -20,18 +20,21 @@ namespace SumyCRM.Controllers
         private readonly DataManager _dataManager;
         private readonly IConfiguration _config;
         private readonly IGeocodingService _geo;
-        private readonly IHubContext<CallNotificationsHub> _hubContext;
+        private readonly IHubContext<CallNotificationsHub> _hubContext; 
+        private readonly IRequestEventService _requestEventService;
         public CallsController(
             DataManager dataManager,
             IConfiguration config,
             IGeocodingService geo,
-            IHubContext<CallNotificationsHub> hubContext)
+            IHubContext<CallNotificationsHub> hubContext,
+            IRequestEventService requestEventService)
         {
             _config = config;
             _dataManager = dataManager;
             _apiKey = config["OpenAI:ApiKey"];
             _geo = geo;
             _hubContext = hubContext;
+            _requestEventService = requestEventService;
         }
 
         [HttpGet("log")]
@@ -272,7 +275,6 @@ namespace SumyCRM.Controllers
                 return BadRequest("No audio name");
 
             string folder = Path.Combine("wwwroot", "audio");
-
             Directory.CreateDirectory(folder);
 
             string fileNameForName = $"{Guid.NewGuid()}_{audioName.FileName}";
@@ -296,8 +298,6 @@ namespace SumyCRM.Controllers
                 await audioAddress.CopyToAsync(stream);
             }
 
-            // ===== Whisper STT =====
-
             AudioClient audioClient = new("whisper-1", _apiKey);
 
             AudioTranscriptionOptions nameOptions = new()
@@ -310,6 +310,7 @@ namespace SumyCRM.Controllers
                     "Українська. Без зайвих слів, без пояснень. " +
                     "Приклад: 'Іваненко Петро Олексійович'."
             };
+
             AudioTranscriptionOptions addressOptions = new()
             {
                 Language = "uk",
@@ -321,30 +322,31 @@ namespace SumyCRM.Controllers
                     "Збережи всі цифри, дроби (наприклад 12/1), корпуси, під'їзд. " +
                     "Без зайвих фраз."
             };
+
             AudioTranscriptionOptions textOptions = new()
             {
                 Language = "uk",
                 ResponseFormat = AudioTranscriptionFormat.Text,
-                Temperature = 0.2f, // чуть мягче для длинной речи
+                Temperature = 0.2f,
                 Prompt =
                     "Це звернення до міських служб. Українська мова. " +
                     "Передай зміст звернення одним текстом без вигаданих деталей. " +
                     "Тематика: транспорт/маршрутки, вода/водовідведення, тепло, ліфти, " +
                     "електроенергія, газ, благоустрій, освітлення, ремонт житла."
             };
-            
+
             var whisperTextPath = await ConvertToWhisperWavAsync(fullPathText, HttpContext.RequestAborted);
             var whisperNamePath = await ConvertToWhisperWavAsync(fullPathName, HttpContext.RequestAborted);
             var whisperAddrPath = await ConvertToWhisperWavAsync(fullPathAddress, HttpContext.RequestAborted);
 
             AudioTranscription transcriptionText =
-                     await audioClient.TranscribeAudioAsync(whisperTextPath, textOptions);
+                await audioClient.TranscribeAudioAsync(whisperTextPath, textOptions);
 
             AudioTranscription transcriptionName =
-                     await audioClient.TranscribeAudioAsync(whisperNamePath, nameOptions);
+                await audioClient.TranscribeAudioAsync(whisperNamePath, nameOptions);
 
             AudioTranscription transcriptionAddress =
-                     await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
+                await audioClient.TranscribeAudioAsync(whisperAddrPath, addressOptions);
 
             string transcriptText = CleanTranscript(transcriptionText.Text);
             string transcriptName = CleanTranscript(transcriptionName.Text);
@@ -352,13 +354,12 @@ namespace SumyCRM.Controllers
 
             caller = NormalizePhone(caller);
 
-            var abonent = await CreateOrUpdateAbonentAsync(
+            await CreateOrUpdateAbonentAsync(
                 caller,
                 transcriptName,
                 transcriptAddress,
                 HttpContext.RequestAborted);
 
-            // ===== Save in DB =====
             if (!MenuToCategory.TryGetValue(menu_item, out var categoryId))
                 return BadRequest("Unknown menu item");
 
@@ -368,7 +369,8 @@ namespace SumyCRM.Controllers
             if (category == null)
                 return BadRequest("Category not found");
 
-            var facility = await _dataManager.Facilities.GetFacilityByIdAsync(new Guid("9e10c51c-668e-4297-a18b-30cf66b2f2ae"));
+            var facility = await _dataManager.Facilities.GetFacilityByIdAsync(
+                new Guid("9e10c51c-668e-4297-a18b-30cf66b2f2ae"));
 
             var record = new Request
             {
@@ -378,6 +380,7 @@ namespace SumyCRM.Controllers
                 Caller = caller,
                 Name = transcriptName,
                 Facility = facility,
+                FacilityId = facility?.Id ?? Guid.Empty,
                 Subcategory = menu_text,
                 Address = transcriptAddress,
                 Text = transcriptText,
@@ -388,6 +391,7 @@ namespace SumyCRM.Controllers
             };
 
             await _dataManager.Requests.SaveRequestAsync(record);
+            await _requestEventService.SyncFromRequestAsync(record, HttpContext.RequestAborted);
 
             return Ok("Uploaded");
         }

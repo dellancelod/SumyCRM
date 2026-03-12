@@ -28,6 +28,7 @@ builder.Services.AddHttpClient<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddScoped<IGeocodingService, NominatimGeocodingService>();
 builder.Services.AddScoped<ISumyStreetImportService, SumyStreetImportService>();
 builder.Services.AddHostedService<PeriodicSumyStreetRefreshHostedService>();
+builder.Services.AddScoped<IRequestEventService, RequestEventService>();
 
 builder.Services.AddTransient<DataManager>();
 builder.Services.AddDbContext<AppDbContext>(options => options
