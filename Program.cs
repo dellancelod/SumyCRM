@@ -6,6 +6,7 @@ using SumyCRM.Data.Repository.EntityFramework;
 using SumyCRM.Data.Repository.Interfaces;
 using SumyCRM.Services;
 using SumyCRM.Hubs;
+using SumyCRM.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,7 +53,7 @@ builder.Services.AddHttpClient("overpass", client =>
 });
 
 //Configure Identity system
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options => {
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => {
     options.Password.RequiredLength = 6;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireDigit = false;

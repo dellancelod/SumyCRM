@@ -14,9 +14,9 @@ namespace SumyCRM.Areas.Admin.Controllers
     public class HomeController : Controller
     {
         private readonly DataManager _dataManager;
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public HomeController(DataManager dataManager, UserManager<IdentityUser> userManager)
+        public HomeController(DataManager dataManager, UserManager<ApplicationUser> userManager)
         {
             _dataManager = dataManager;
             _userManager = userManager;

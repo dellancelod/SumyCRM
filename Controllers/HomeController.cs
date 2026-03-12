@@ -15,11 +15,11 @@ namespace SumyCRM.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly UserManager<IdentityUser> userManager;
-        private readonly SignInManager<IdentityUser> signInManager;
+        private readonly UserManager<ApplicationUser> userManager;
+        private readonly SignInManager<ApplicationUser> signInManager;
 
         private readonly DataManager _dataManager;
-        public HomeController(UserManager<IdentityUser> userMgr, SignInManager<IdentityUser> signInMgr,
+        public HomeController(UserManager<ApplicationUser> userMgr, SignInManager<ApplicationUser> signInMgr,
             DataManager dataManager, AppDbContext db)
         {
             userManager = userMgr;
@@ -39,7 +39,7 @@ namespace SumyCRM.Controllers
         {
             if (ModelState.IsValid)
             {
-                IdentityUser user = await userManager.FindByNameAsync(model.Username);
+                ApplicationUser user = await userManager.FindByNameAsync(model.Username);
                 if (user != null)
                 {
                     await signInManager.SignOutAsync();

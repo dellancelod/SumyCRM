@@ -7,7 +7,7 @@ namespace SumyCRM.Models
         public string UserId { get; set; } = default!;
         public Guid FacilityId { get; set; }
 
-        public IdentityUser User { get; set; } = default!;
+        public ApplicationUser User { get; set; } = default!;
         public Facility Facility { get; set; } = default!;
     }
 }

@@ -14,9 +14,9 @@ namespace SumyCRM.Areas.Admin.Controllers
     public class RequestsController : Controller
     {
         private readonly DataManager dataManager;
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public RequestsController(DataManager dataManager, UserManager<IdentityUser> userManager)
+        public RequestsController(DataManager dataManager, UserManager<ApplicationUser> userManager)
         {
             this.dataManager = dataManager;
             _userManager = userManager;

@@ -6,7 +6,6 @@ namespace SumyCRM.Areas.Admin.Models
 {
     public class UserEditViewModel : EntityBase
     {
-
         [Required]
         [Display(Name = "Логін")]
         public string UserName { get; set; } = "";
@@ -15,6 +14,10 @@ namespace SumyCRM.Areas.Admin.Models
         [EmailAddress]
         [Display(Name = "Email")]
         public string Email { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Ім'я")]
+        public string Name { get; set; } = "";
 
         [DataType(DataType.Password)]
         [Display(Name = "Новий пароль")]

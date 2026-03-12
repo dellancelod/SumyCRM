@@ -1,7 +1,7 @@
 ﻿@model SumyCRM.Areas.Admin.Models.UserEditViewModel
 
 @{
-    bool isNew = string.IsNullOrWhiteSpace(Model.Id.ToString());
+    bool isNew = Model.Id == Guid.Empty;
     ViewBag.Title = isNew ? "Створити користувача" : "Редагувати користувача";
 }
 
@@ -23,6 +23,12 @@
             <label asp-for="Email" class="form-label"></label>
             <input asp-for="Email" class="form-control" />
             <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
         </div>
 
         <div class="mb-3">

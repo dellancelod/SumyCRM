@@ -1,4 +1,4 @@
-﻿@model IEnumerable<Microsoft.AspNetCore.Identity.IdentityUser>
+﻿@model IEnumerable<SumyCRM.Models.ApplicationUser>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0">Користувачі</h2>
@@ -11,6 +11,7 @@
     <thead>
         <tr>
             <th>Логін</th>
+            <th>ПІБ</th>
             <th>Email</th>
             <th style="width: 120px;">Дії</th>
         </tr>
@@ -20,6 +21,7 @@
         {
             <tr>
                 <td>@user.UserName</td>
+                <td>@user.Name</td>
                 <td>@user.Email</td>
                 <td>
                     <a asp-area="Admin"
