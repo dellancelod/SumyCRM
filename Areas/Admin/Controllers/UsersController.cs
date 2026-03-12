@@ -57,6 +57,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             model.Id = new Guid(user.Id);
             model.UserName = user.UserName ?? "";
             model.Email = user.Email ?? "";
+            model.Name = user.Name ?? "";
             model.Role = roles.FirstOrDefault() ?? "operator";
             model.SelectedFacilityIds = facilityIds;
 
@@ -98,6 +99,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 {
                     UserName = model.UserName.Trim(),
                     Email = model.Email.Trim(),
+                    Name = model.Name?.Trim(),
                     EmailConfirmed = true
                 };
 
@@ -157,6 +159,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             existing.UserName = model.UserName.Trim();
             existing.Email = model.Email.Trim();
+            existing.Name = model.Name?.Trim();
             existing.NormalizedUserName = _userManager.NormalizeName(existing.UserName);
             existing.NormalizedEmail = _userManager.NormalizeEmail(existing.Email);
 
