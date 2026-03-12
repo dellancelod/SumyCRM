@@ -371,21 +371,21 @@ namespace SumyCRM.Controllers
             var facility = await _dataManager.Facilities.GetFacilityByIdAsync(new Guid("9e10c51c-668e-4297-a18b-30cf66b2f2ae"));
 
             var record = new Request
-{
-    RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
-    CategoryId = category.Id,
-    Category = category,
-    Caller = caller,
-    Name = transcriptName,
-    Facility = facility,
-    Subcategory = menu_text,
-    Address = transcriptAddress,
-    Text = transcriptText,
-    IsCompleted = false,
-    AudioFilePath = "/audio/" + fileNameForText,
-    NameAudioFilePath = "/audio/" + fileNameForName,
-    AddressAudioFilePath = "/audio/" + fileNameForAddress
-};
+            {
+                RequestNumber = _dataManager.Requests.GetRequests().Count() + 1,
+                CategoryId = category.Id,
+                Category = category,
+                Caller = caller,
+                Name = transcriptName,
+                Facility = facility,
+                Subcategory = menu_text,
+                Address = transcriptAddress,
+                Text = transcriptText,
+                IsCompleted = false,
+                AudioFilePath = "/audio/" + fileNameForText,
+                NameAudioFilePath = "/audio/" + fileNameForName,
+                AddressAudioFilePath = "/audio/" + fileNameForAddress
+            };
 
             await _dataManager.Requests.SaveRequestAsync(record);
 

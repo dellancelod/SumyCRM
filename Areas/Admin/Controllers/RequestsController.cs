@@ -207,6 +207,88 @@ namespace SumyCRM.Areas.Admin.Controllers
             return (last ?? 0) + 1;
         }
 
+        private static string? NormalizePhone(string? phone)
+        {
+            if (string.IsNullOrWhiteSpace(phone))
+                return null;
+
+            var trimmed = phone.Trim();
+
+            var chars = trimmed
+                .Where(c => char.IsDigit(c) || c == '+')
+                .ToArray();
+
+            if (chars.Length == 0)
+                return null;
+
+            var normalized = new string(chars);
+
+            if (normalized.StartsWith("00"))
+                normalized = "+" + normalized.Substring(2);
+
+            if (!normalized.StartsWith("+"))
+            {
+                if (normalized.StartsWith("380"))
+                    normalized = "+" + normalized;
+                else if (normalized.StartsWith("80"))
+                    normalized = "+3" + normalized;
+            }
+
+            return normalized;
+        }
+
+        private async Task<Abonent?> CreateOrUpdateAbonentAsync(
+            string? caller,
+            string? name,
+            string? fullAddress,
+            CancellationToken ct = default)
+        {
+            var normalizedPhone = NormalizePhone(caller);
+
+            if (string.IsNullOrWhiteSpace(normalizedPhone))
+                return null;
+
+            var abonent = await dataManager.Abonents
+                .GetAbonents()
+                .FirstOrDefaultAsync(a => a.Phone == normalizedPhone, ct);
+
+            var normalizedName = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+            var normalizedAddress = string.IsNullOrWhiteSpace(fullAddress) ? null : fullAddress.Trim();
+
+            if (abonent == null)
+            {
+                abonent = new Abonent
+                {
+                    Id = Guid.NewGuid(),
+                    Phone = normalizedPhone,
+                    Name = normalizedName,
+                    FullAddress = normalizedAddress
+                };
+
+                await dataManager.Abonents.SaveAbonentAsync(abonent);
+                return abonent;
+            }
+
+            bool changed = false;
+
+            if (string.IsNullOrWhiteSpace(abonent.Name) && !string.IsNullOrWhiteSpace(normalizedName))
+            {
+                abonent.Name = normalizedName;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(abonent.FullAddress) && !string.IsNullOrWhiteSpace(normalizedAddress))
+            {
+                abonent.FullAddress = normalizedAddress;
+                changed = true;
+            }
+
+            if (changed)
+                await dataManager.Abonents.SaveAbonentAsync(abonent);
+
+            return abonent;
+        }
+
         static Run R(string text, bool bold = false, string fontSize = "24")
         {
             return new Run(
@@ -555,7 +637,16 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (model.Id == Guid.Empty)
             {
                 model.IsCompleted = false;
+                model.Caller = NormalizePhone(model.Caller);
+
                 await dataManager.Requests.SaveRequestAsync(model);
+
+                await CreateOrUpdateAbonentAsync(
+                    model.Caller,
+                    model.Name,
+                    model.Address,
+                    HttpContext.RequestAborted
+                );
             }
             else
             {
@@ -564,7 +655,7 @@ namespace SumyCRM.Areas.Admin.Controllers
 
                 entity.RequestNumber = model.RequestNumber;
                 entity.Name = model.Name;
-                entity.Caller = model.Caller;
+                entity.Caller = NormalizePhone(model.Caller);
                 entity.Subcategory = model.Subcategory;
                 entity.Address = model.Address;
                 entity.Text = model.Text;
@@ -577,6 +668,13 @@ namespace SumyCRM.Areas.Admin.Controllers
                 entity.CompletedOn = model.CompletedOn;
 
                 await dataManager.Requests.SaveRequestAsync(entity);
+
+                await CreateOrUpdateAbonentAsync(
+                    entity.Caller,
+                    entity.Name,
+                    entity.Address,
+                    HttpContext.RequestAborted
+                );
             }
 
             return RedirectToAction(nameof(Index), new { page = 1, status = completed ? "completed" : "active" });
@@ -914,7 +1012,7 @@ namespace SumyCRM.Areas.Admin.Controllers
             entity.RequestNumber = dto.RequestNumber;
             entity.Name = dto.Name?.Trim();
             entity.Address = dto.Address?.Trim();
-            entity.Caller = dto.Caller?.Trim();
+            entity.Caller = NormalizePhone(dto.Caller?.Trim());
             entity.Text = dto.Text?.Trim();
             entity.FacilityId = dto.FacilityId;
             entity.ForwardedTo = dto.ForwardedTo?.Trim();
@@ -924,6 +1022,13 @@ namespace SumyCRM.Areas.Admin.Controllers
             entity.CompletedOn = dto.CompletedOn;
 
             await dataManager.Requests.SaveRequestAsync(entity);
+
+            await CreateOrUpdateAbonentAsync(
+                entity.Caller,
+                entity.Name,
+                entity.Address,
+                HttpContext.RequestAborted
+            );
 
             TempData["ToastMessage"] = $"Дані друк-форми для звернення №{entity.RequestNumber} збережено.";
             TempData["ToastType"] = "success";
