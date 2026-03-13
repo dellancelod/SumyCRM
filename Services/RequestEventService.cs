@@ -80,7 +80,6 @@ namespace SumyCRM.Services
                 _db.Events.Add(entity);
             }
 
-            entity.RequestNumber = request.RequestNumber;
             entity.CategoryName = categoryName ?? "";
             entity.StreetName = streetName ?? "";
             entity.Address = shortAddress ?? streetName ?? request.Address ?? "";

@@ -16,19 +16,24 @@ namespace SumyCRM.Areas.Admin.Controllers
         private readonly IGeocodingService _geo;
         private readonly IMemoryCache _cache;
         private readonly IHttpClientFactory _httpFactory;
+        private readonly AppDbContext _db;
 
-        public WaterLeaksController(DataManager dataManager, IGeocodingService geo, IMemoryCache cache, IHttpClientFactory httpFactory)
+        public WaterLeaksController(
+            DataManager dataManager,
+            IGeocodingService geo,
+            IMemoryCache cache,
+            IHttpClientFactory httpFactory,
+            AppDbContext db)
         {
             _dataManager = dataManager;
             _geo = geo;
             _cache = cache;
             _httpFactory = httpFactory;
+            _db = db;
         }
 
-        // Page with form + map
         public IActionResult Index() => View();
 
-        // API: get all points
         [HttpGet]
         public async Task<IActionResult> Points(CancellationToken ct)
         {
@@ -56,14 +61,16 @@ namespace SumyCRM.Areas.Admin.Controllers
             public string? Notes { get; set; }
         }
 
-        public class DeleteDto { public Guid Id { get; set; } }
+        public class DeleteDto
+        {
+            public Guid Id { get; set; }
+        }
 
         private static bool HasDigit(string s) => s.Any(char.IsDigit);
 
         private static string NormalizeStreetName(string s)
         {
             s = (s ?? "").Trim();
-            // Collapse spaces
             s = Regex.Replace(s, @"\s+", " ").Trim();
             return s;
         }
@@ -76,14 +83,11 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (string.IsNullOrWhiteSpace(input))
                 return false;
 
-            // Examples:
-            // "Харківська 12-24"
-            // "Харківська, 12–24"
-            // "вул. Харківська 12 - 24"
             var s = NormalizeStreetName(input);
 
-            // allow dash '-' or en-dash '–'
-            var m = Regex.Match(s, @"^(?<street>.*?)[,\s]+(?<a>\d{1,5})\s*[-–]\s*(?<b>\d{1,5})\s*$",
+            var m = Regex.Match(
+                s,
+                @"^(?<street>.*?)[,\s]+(?<a>\d{1,5})\s*[-–]\s*(?<b>\d{1,5})\s*$",
                 RegexOptions.CultureInvariant);
 
             if (!m.Success)
@@ -104,7 +108,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             from = Math.Min(a, b);
             to = Math.Max(a, b);
 
-            // guard: don't allow insane ranges
             if (to - from > 200)
                 return false;
 
@@ -127,13 +130,13 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (_cache.TryGetValue(cacheKey, out List<List<(double lat, double lon)>>? cached) && cached != null && cached.Count > 0)
                 return cached;
 
-            // city center cached (ok)
             var city = await _cache.GetOrCreateAsync("geo:city:sumy", async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(30);
                 entry.SlidingExpiration = TimeSpan.FromDays(7);
                 return await _geo.GeocodeAsync("Суми, Україна", ct);
             });
+
             if (city == null) return new();
 
             var lat0 = city.Value.lat;
@@ -142,19 +145,15 @@ namespace SumyCRM.Areas.Admin.Controllers
 
             var streetRegex = EscapeOverpassRegex(street);
 
-            // 1) exact match first
             var qExact = BuildOverpassQuery(lat0, lon0, radius, $"^{streetRegex}$");
-            // 2) fallback "contains" match
             var qLoose = BuildOverpassQuery(lat0, lon0, radius, streetRegex);
 
             var client = _httpFactory.CreateClient("overpass");
 
-            // Try: exact (with retries + mirror fallback), then loose (with retries + mirror fallback)
             var lines = await ExecuteOverpassWithFallbackAsync(client, qExact, ct);
             if (lines.Count == 0)
                 lines = await ExecuteOverpassWithFallbackAsync(client, qLoose, ct);
 
-            // Cache: success long, empty very short (important)
             _cache.Set(cacheKey, lines, new MemoryCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = lines.Count > 0 ? TimeSpan.FromDays(180) : TimeSpan.FromSeconds(45),
@@ -178,19 +177,19 @@ namespace SumyCRM.Areas.Admin.Controllers
 
         private async Task<List<List<(double lat, double lon)>>> ExecuteOverpassWithFallbackAsync(HttpClient client, string query, CancellationToken ct)
         {
-            // Each endpoint: try 2 attempts (handles temporary overload)
             foreach (var endpoint in OverpassEndpoints)
             {
                 for (int attempt = 1; attempt <= 2; attempt++)
                 {
                     try
                     {
-                        using var resp = await client.PostAsync(endpoint,
-                            new FormUrlEncodedContent(new Dictionary<string, string> { ["data"] = query }), ct);
+                        using var resp = await client.PostAsync(
+                            endpoint,
+                            new FormUrlEncodedContent(new Dictionary<string, string> { ["data"] = query }),
+                            ct);
 
                         var json = await resp.Content.ReadAsStringAsync(ct);
 
-                        // Retry only on transient statuses
                         if ((int)resp.StatusCode is 429 or 502 or 503 or 504)
                         {
                             await Task.Delay(250 * attempt, ct);
@@ -198,17 +197,14 @@ namespace SumyCRM.Areas.Admin.Controllers
                         }
 
                         resp.EnsureSuccessStatusCode();
-
                         return ParseOverpassGeom(json);
                     }
                     catch (TaskCanceledException) when (!ct.IsCancellationRequested)
                     {
-                        // timeout -> retry
                         await Task.Delay(250 * attempt, ct);
                     }
                     catch (HttpRequestException)
                     {
-                        // network -> retry
                         await Task.Delay(250 * attempt, ct);
                     }
                 }
@@ -242,11 +238,81 @@ namespace SumyCRM.Areas.Admin.Controllers
 
         private static string EscapeOverpassRegex(string s)
         {
-            // Escape regex special characters for Overpass ~ operator
             return Regex.Escape(s.Trim());
         }
 
-        // API: create point by address (server geocoding)
+        private static string ExtractStreetName(string? address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return "";
+
+            var s = address.Trim();
+            s = Regex.Replace(s, @"\s+", " ");
+
+            var patterns = new[]
+            {
+                @"(?i)\b(вул\.?|вулиця)\s+([^\.,\d]+)",
+                @"(?i)\b(просп\.?|проспект)\s+([^\.,\d]+)",
+                @"(?i)\b(пров\.?|провулок)\s+([^\.,\d]+)",
+                @"(?i)\b(пл\.?|площа)\s+([^\.,\d]+)",
+                @"(?i)\b(майдан)\s+([^\.,\d]+)",
+                @"(?i)\b(наб\.?|набережна)\s+([^\.,\d]+)",
+                @"(?i)\b(шосе)\s+([^\.,\d]+)",
+                @"(?i)\b(бульв\.?|бульвар)\s+([^\.,\d]+)"
+            };
+
+            foreach (var pattern in patterns)
+            {
+                var match = Regex.Match(s, pattern, RegexOptions.CultureInvariant);
+                if (match.Success)
+                    return $"{match.Groups[1].Value.Trim().TrimEnd('.')} {match.Groups[2].Value.Trim()}".Trim();
+            }
+
+            var firstPart = s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                             .FirstOrDefault();
+
+            return firstPart ?? "";
+        }
+
+        private async Task CreateOrUpdateWaterLeakEventAsync(WaterLeakReport leak, CancellationToken ct)
+        {
+            var ev = await _db.Events.FirstOrDefaultAsync(x => x.WaterLeakReportId == leak.Id, ct);
+
+            if (ev == null)
+            {
+                ev = new Event
+                {
+                    WaterLeakReportId = leak.Id,
+                    SourceType = "WaterLeak",
+                    DateAdded = leak.DateAdded
+                };
+                _db.Events.Add(ev);
+            }
+
+            ev.RequestId = null;
+            ev.SourceType = "WaterLeak";
+            ev.CategoryName = "Водопостачання";
+            ev.StreetName = ExtractStreetName(leak.Address);
+            ev.Address = leak.Address ?? "";
+            ev.Text = leak.Notes ?? "Відключення води";
+            ev.Latitude = leak.Latitude;
+            ev.Longitude = leak.Longitude;
+            ev.IsCompleted = false;
+            ev.DateAdded = leak.DateAdded;
+
+            await _db.SaveChangesAsync(ct);
+        }
+
+        private async Task DeleteWaterLeakEventAsync(Guid waterLeakId, CancellationToken ct)
+        {
+            var ev = await _db.Events.FirstOrDefaultAsync(x => x.WaterLeakReportId == waterLeakId, ct);
+            if (ev != null)
+            {
+                _db.Events.Remove(ev);
+                await _db.SaveChangesAsync(ct);
+            }
+        }
+
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateLeakDto dto, CancellationToken ct)
         {
@@ -257,12 +323,10 @@ namespace SumyCRM.Areas.Admin.Controllers
             {
                 var input = dto.Address.Trim();
 
-                // ===== RANGE: "Харківська 12-24" => create points for each house number =====
                 if (TryParseHouseRange(input, out var streetPart, out var from, out var to))
                 {
-                    // Limit to protect from accidental huge ranges
                     const int maxPoints = 60;
-                    var count = (to - from + 1);
+                    var count = to - from + 1;
                     if (count > maxPoints)
                         return BadRequest(new { error = $"Занадто великий діапазон ({count}). Максимум: {maxPoints} адрес за раз." });
 
@@ -275,15 +339,11 @@ namespace SumyCRM.Areas.Admin.Controllers
                         var addr = $"{streetPart} {n}";
                         var geo = await _geo.GeocodeAsync(addr, ct);
                         if (geo == null)
-                        {
-                            // Skip not-found houses, but keep going
                             continue;
-                        }
 
-                        var finalAddress =
-                            geo.Value.shortAddress.Any(char.IsDigit)
-                                ? geo.Value.shortAddress
-                                : addr;
+                        var finalAddress = geo.Value.shortAddress.Any(char.IsDigit)
+                            ? geo.Value.shortAddress
+                            : addr;
 
                         var entity = new WaterLeakReport
                         {
@@ -297,6 +357,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                         };
 
                         await _dataManager.WaterLeakReports.SaveWaterLeakReportAsync(entity);
+                        await CreateOrUpdateWaterLeakEventAsync(entity, ct);
 
                         created.Add(new
                         {
@@ -320,17 +381,15 @@ namespace SumyCRM.Areas.Admin.Controllers
                     });
                 }
 
-                // ===== POINT (address with number) =====
                 if (HasDigit(input))
                 {
                     var geo = await _geo.GeocodeAsync(dto.Address, ct);
                     if (geo == null)
                         return BadRequest(new { error = "Адреси не знайдено. Перевірте правильний напис вулиці / номера будинку" });
 
-                    var finalAddress =
-                        geo.Value.shortAddress.Any(char.IsDigit)
-                            ? geo.Value.shortAddress
-                            : input;
+                    var finalAddress = geo.Value.shortAddress.Any(char.IsDigit)
+                        ? geo.Value.shortAddress
+                        : input;
 
                     var entity = new WaterLeakReport
                     {
@@ -344,6 +403,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                     };
 
                     await _dataManager.WaterLeakReports.SaveWaterLeakReportAsync(entity);
+                    await CreateOrUpdateWaterLeakEventAsync(entity, ct);
 
                     return Ok(new
                     {
@@ -355,16 +415,13 @@ namespace SumyCRM.Areas.Admin.Controllers
                     });
                 }
 
-                // ===== STREET polyline (no digits) =====
                 var lines = await GetStreetPolylinesAsync(input, ct);
                 if (lines.Count == 0)
                     return BadRequest(new { error = $"Геометрія вулиці не знайдена для: '{dto.Address}'." });
 
-                // center: use middle of the longest line
                 var longest = lines.OrderByDescending(l => l.Count).First();
                 var center = longest[longest.Count / 2];
 
-                // GeometryJson now becomes array of lines: [ [[lat,lon],[lat,lon]], [[lat,lon],...] ]
                 var geometryJson = System.Text.Json.JsonSerializer.Serialize(
                     lines.Select(line => line.Select(p => new[] { p.lat, p.lon }).ToList()).ToList()
                 );
@@ -387,6 +444,7 @@ namespace SumyCRM.Areas.Admin.Controllers
                 };
 
                 await _dataManager.WaterLeakReports.SaveWaterLeakReportAsync(streetEntity);
+                await CreateOrUpdateWaterLeakEventAsync(streetEntity, ct);
 
                 return Ok(new
                 {
@@ -424,7 +482,9 @@ namespace SumyCRM.Areas.Admin.Controllers
             if (dto == null || dto.Id == Guid.Empty)
                 return BadRequest(new { error = "Invalid id" });
 
+            await DeleteWaterLeakEventAsync(dto.Id, HttpContext.RequestAborted);
             await _dataManager.WaterLeakReports.DeleteWaterLeakReportAsync(dto.Id);
+
             return Ok(new { ok = true });
         }
 
@@ -439,7 +499,10 @@ namespace SumyCRM.Areas.Admin.Controllers
                 return Ok(new { ok = true, deleted = 0 });
 
             foreach (var item in all)
+            {
+                await DeleteWaterLeakEventAsync(item.Id, HttpContext.RequestAborted);
                 await _dataManager.WaterLeakReports.DeleteWaterLeakReportAsync(item);
+            }
 
             return Ok(new { ok = true, deleted = all.Count });
         }

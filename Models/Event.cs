@@ -5,10 +5,14 @@ namespace SumyCRM.Models
 {
     public class Event : EntityBase
     {
-        public Guid RequestId { get; set; }
+        public Guid? RequestId { get; set; }
         public Request? Request { get; set; }
 
-        public int RequestNumber { get; set; }
+        public Guid? WaterLeakReportId { get; set; }
+        public WaterLeakReport? WaterLeakReport { get; set; }
+
+        [MaxLength(50)]
+        public string SourceType { get; set; } = "";
 
         [MaxLength(256)]
         public string CategoryName { get; set; } = "";
@@ -26,6 +30,5 @@ namespace SumyCRM.Models
         public double? Longitude { get; set; }
 
         public bool IsCompleted { get; set; }
-
     }
 }

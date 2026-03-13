@@ -166,12 +166,9 @@
 <div class="container-fluid py-3">
     <div class="map-toolbar">
         <div>
-            <h2 class="h4 mb-1">Карта подій</h2>
+            <h2 class="h4 mb-1">Мапа подій</h2>
         </div>
 
-        <div class="map-legend">
-            <span><span class="legend-dot" style="background:#dc3545;"></span>Активні</span>
-        </div>
     </div>
 
     <div id="eventsMap"></div>
@@ -182,12 +179,15 @@
 <script>
     let map;
     let markersLayer;
+    let reloadTimer = null;
+    let isReloading = false;
 
     const DEFAULT_LAT = 50.9077;
     const DEFAULT_LON = 34.7981;
     const DEFAULT_ZOOM = 12;
     const NEW_EVENT_SECONDS = 30;
     const KYIV_TIMEZONE = 'Europe/Kyiv';
+    const RELOAD_MS = 15000;
 
     function escapeHtml(value) {
         if (!value) return '';
@@ -275,7 +275,6 @@
 
     function buildPopup(item) {
         return `
-            <div class="popup-title">Звернення №${escapeHtml(item.requestNumber)}</div>
             <div class="popup-row"><strong>Категорія:</strong> ${escapeHtml(item.categoryName || '')}</div>
             <div class="popup-row"><strong>Вулиця:</strong> ${escapeHtml(item.streetName || '')}</div>
             <div class="popup-row"><strong>Адреса:</strong> ${escapeHtml(item.address || '')}</div>
@@ -348,13 +347,24 @@
     }
 
     async function loadEvents() {
+        if (isReloading) return;
+
+        isReloading = true;
+
         try {
-            const response = await fetch('@Url.Action("GetMapEvents", "Home")', {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            const url = '@Url.Action("GetMapEvents", "Home")' + '?_=' + Date.now();
+
+            const response = await fetch(url, {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Cache-Control': 'no-cache'
+                }
             });
 
             if (!response.ok) {
-                console.error('Failed to load events');
+                console.error('Failed to load events', response.status);
                 return;
             }
 
@@ -373,9 +383,17 @@
                 marker.addTo(markersLayer);
             }
 
+            console.log('Map reloaded:', new Date().toLocaleTimeString(), 'items:', data.length);
         } catch (e) {
             console.error('Error while loading events', e);
+        } finally {
+            isReloading = false;
         }
+    }
+
+    async function pollEvents() {
+        await loadEvents();
+        reloadTimer = setTimeout(pollEvents, RELOAD_MS);
     }
 
     document.addEventListener('DOMContentLoaded', async function () {
@@ -392,8 +410,6 @@
 
         map.setView([DEFAULT_LAT, DEFAULT_LON], DEFAULT_ZOOM);
 
-        await loadEvents();
-
-        setInterval(loadEvents, 15000);
+        await pollEvents();
     });
 </script>
