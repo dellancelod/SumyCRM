@@ -81,7 +81,6 @@ namespace SumyCRM.Services
             }
 
             entity.CategoryName = categoryName ?? "";
-            entity.StreetName = streetName ?? "";
             entity.Address = shortAddress ?? streetName ?? request.Address ?? "";
             entity.Text = request.Subcategory ?? "";
             entity.IsCompleted = false;

@@ -34,7 +34,6 @@ namespace SumyCRM.Controllers
                     id = x.Id,
                     requestId = x.RequestId,
                     categoryName = x.CategoryName,
-                    streetName = x.StreetName,
                     address = x.Address,
                     text = x.Text,
                     lat = x.Latitude,

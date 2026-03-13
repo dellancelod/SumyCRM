@@ -292,7 +292,6 @@ namespace SumyCRM.Areas.Admin.Controllers
             ev.RequestId = null;
             ev.SourceType = "WaterLeak";
             ev.CategoryName = "Водопостачання";
-            ev.StreetName = ExtractStreetName(leak.Address);
             ev.Address = leak.Address ?? "";
             ev.Text = leak.Notes ?? "Відключення води";
             ev.Latitude = leak.Latitude;

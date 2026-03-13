@@ -276,7 +276,6 @@
     function buildPopup(item) {
         return `
             <div class="popup-row"><strong>Категорія:</strong> ${escapeHtml(item.categoryName || '')}</div>
-            <div class="popup-row"><strong>Вулиця:</strong> ${escapeHtml(item.streetName || '')}</div>
             <div class="popup-row"><strong>Адреса:</strong> ${escapeHtml(item.address || '')}</div>
             <div class="popup-row"><strong>Дата:</strong> ${escapeHtml(formatDate(item.dateAdded))}</div>
             <div class="popup-row"><strong>Текст:</strong> ${escapeHtml(item.text || '')}</div>

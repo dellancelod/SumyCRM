@@ -17,9 +17,6 @@ namespace SumyCRM.Models
         [MaxLength(256)]
         public string CategoryName { get; set; } = "";
 
-        [MaxLength(256)]
-        public string StreetName { get; set; } = "";
-
         [MaxLength(512)]
         public string Address { get; set; } = "";
 
